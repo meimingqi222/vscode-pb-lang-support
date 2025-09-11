@@ -1,0 +1,32 @@
+{
+  "comments": {
+    "lineComment": ";"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""]
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(Procedure|If|For|While|Repeat|Select|Structure|Interface|Enumeration|Module|DeclareModule)\\b",
+      "end": "^\\s*(EndProcedure|EndIf|Next|Wend|Until|EndSelect|EndStructure|EndInterface|EndEnumeration|EndModule|EndDeclareModule)\\b"
+    }
+  },
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+  "autocomplete": {
+    "triggerCharacters": [".", "(", " "]
+  }
+}

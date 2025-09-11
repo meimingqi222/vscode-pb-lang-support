@@ -1,0 +1,112 @@
+{
+  "scopeName": "source.purebasic",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.semicolon.purebasic",
+          "begin": ";",
+          "end": "$"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.purebasic",
+          "match": "\\b(If|Else|ElseIf|EndIf|Then|For|Next|Step|To|While|Wend|Repeat|Until|Select|Case|Default|EndSelect|Break|Continue|Goto|Gosub|Return|End|Procedure|Declare|Prototype|Interface|EndInterface|Structure|EndStructure|Enumeration|EndEnumeration|Data|Read|Restore|NewList|AddElement|InsertElement|DeleteElement|ClearList|ListIndex|ResetList|NextElement|PreviousElement|ForEach|With|EndWith|Module|EndModule|DeclareModule|EndDeclareModule|UseModule|UnuseModule|EnableExplicit|DisableExplicit)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.purebasic",
+          "match": "\\b(And|Or|Not|Xor)\\b"
+        },
+        {
+          "name": "storage.type.purebasic",
+          "match": "\\b(Integer|Long|Word|Byte|Character|String|FixedString|Float|Double|Quad|Ascii|Unicode)\\b"
+        },
+        {
+          "name": "storage.modifier.purebasic",
+          "match": "\\b(Global|Protected|Shared|Static|Dim|ReDim|Array|List|Map|Define)\\b"
+        },
+        {
+          "name": "constant.language.purebasic",
+          "match": "\\b(#True|#False|#Null|#PB_Any|#PB_Default|#Null|#PI|#E)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.purebasic",
+          "match": "\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.purebasic",
+          "match": "\\$[0-9A-Fa-f]+"
+        },
+        {
+          "name": "constant.numeric.binary.purebasic",
+          "match": "\\%[01]+"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.purebasic",
+          "begin": "\"",
+          "end": "\""
+        },
+        {
+          "name": "string.quoted.single.purebasic",
+          "begin": "'",
+          "end": "'"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.purebasic",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\("
+        },
+        {
+          "name": "support.function.purebasic",
+          "match": "\\b(OpenWindow|CreateGadgetList|EventWindow|EventGadget|EventMenu|WaitWindowEvent|WindowEvent|SetActiveWindow|CloseWindow|WindowID|WindowOutput|WindowX|WindowY|WindowWidth|WindowHeight|DesktopWidth|DesktopHeight|DesktopDepth|DesktopFrequency|Delay|CountProgramParameters|ProgramParameter|RunProgram|OpenFile|ReadFile|WriteFile|CloseFile|FileSeek|FileSize|Eof|ReadString|WriteString|ReadCharacter|WriteCharacter|ReadByte|WriteByte|ReadWord|WriteWord|ReadLong|WriteLong|ReadQuad|WriteQuad|ReadFloat|WriteFloat|ReadDouble|WriteDouble|CreateDirectory|DeleteFile|CopyFile|RenameFile|DirectoryEntry|DirectoryEntryType|DirectoryEntryName|DirectoryEntrySize|DirectoryEntryDate|DirectoryEntryAttributes|NextDirectoryEntry|FinishDirectory|ExamineDirectory|SetCurrentDirectory|GetCurrentDirectory|CreateFile|FileBuffers|FileID|FileError|MessageRequester|InputRequester|OpenFileRequester|SaveFileRequester|PathRequester|ColorRequester|FontRequester|DebuggerDisplay|DebuggerLevel|CompilerError|CompilerWarning|CompilerIf|CompilerElse|CompilerEndIf|CompilerError|CompilerWarning|IncludeFile|IncludeBinary|XIncludeFile|EnableExplicit|DisableExplicit|UseModule|UnuseModule|DeclareModule|EndDeclareModule|Module|EndModule|DeclareC|PrototypeC|Import|ImportC|EndImport|EndImportC|DefineMacro|UndefineMacro|Macro|EndMacro)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.purebasic",
+          "match": "(\\+|\\-|\\*|\\/|\\%|\\=|\\<|\\>|\\<\\=|\\>\\=|\\<\\>|\\&|\\||\\^|\\~|\\<\\<|\\>\\>)"
+        },
+        {
+          "name": "keyword.operator.assignment.purebasic",
+          "match": "(\\=|\\+\\=|\\-\\=|\\*\\=|\\/\\=|\\%\\=|\\&\\=|\\|\\=|\\^\\=|\\<\\<\\=|\\>\\>\\=)"
+        }
+      ]
+    }
+  }
+}
