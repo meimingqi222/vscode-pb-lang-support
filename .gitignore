@@ -48,3 +48,7 @@ test-results/
 # PureBasic test files
 *.pb
 !test/samples/*.pb
+
+# Claude Code development files - exclude from repository
+.claude/
+CLAUDE.md
