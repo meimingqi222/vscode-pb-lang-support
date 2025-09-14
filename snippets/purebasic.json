@@ -1,0 +1,254 @@
+{
+  "Procedure": {
+    "prefix": ["procedure", "proc"],
+    "body": [
+      "Procedure${1/.+/\\./}${1:ReturnType} ${2:ProcedureName}(${3:parameters})",
+      "\t$0",
+      "EndProcedure"
+    ],
+    "description": "Create a PureBasic procedure"
+  },
+  "Procedure with return": {
+    "prefix": ["procr", "procedure-return"],
+    "body": [
+      "Procedure.${1:i} ${2:ProcedureName}(${3:parameters})",
+      "\t${4:// code}",
+      "\tProcedureReturn ${5:result}",
+      "EndProcedure"
+    ],
+    "description": "Create a PureBasic procedure with return value"
+  },
+  "If Statement": {
+    "prefix": ["if"],
+    "body": [
+      "If ${1:condition}",
+      "\t$0",
+      "EndIf"
+    ],
+    "description": "If-EndIf statement"
+  },
+  "If-Else Statement": {
+    "prefix": ["ifelse"],
+    "body": [
+      "If ${1:condition}",
+      "\t${2:// true code}",
+      "Else",
+      "\t${3:// false code}",
+      "EndIf"
+    ],
+    "description": "If-Else-EndIf statement"
+  },
+  "For Loop": {
+    "prefix": ["for"],
+    "body": [
+      "For ${1:i} = ${2:0} To ${3:10}${4: Step ${5:1}}",
+      "\t$0",
+      "Next"
+    ],
+    "description": "For-Next loop"
+  },
+  "ForEach Loop": {
+    "prefix": ["foreach"],
+    "body": [
+      "ForEach ${1:listName}()",
+      "\t$0",
+      "Next"
+    ],
+    "description": "ForEach-Next loop for lists"
+  },
+  "While Loop": {
+    "prefix": ["while"],
+    "body": [
+      "While ${1:condition}",
+      "\t$0",
+      "Wend"
+    ],
+    "description": "While-Wend loop"
+  },
+  "Repeat-Until Loop": {
+    "prefix": ["repeat"],
+    "body": [
+      "Repeat",
+      "\t$0",
+      "Until ${1:condition}"
+    ],
+    "description": "Repeat-Until loop"
+  },
+  "Select Statement": {
+    "prefix": ["select"],
+    "body": [
+      "Select ${1:variable}",
+      "\tCase ${2:value1}",
+      "\t\t${3:// code}",
+      "\tCase ${4:value2}",
+      "\t\t${5:// code}",
+      "\tDefault",
+      "\t\t${6:// default code}",
+      "EndSelect"
+    ],
+    "description": "Select-Case-EndSelect statement"
+  },
+  "Structure": {
+    "prefix": ["struct", "structure"],
+    "body": [
+      "Structure ${1:StructureName}",
+      "\t${2:field}.${3:i}",
+      "\t$0",
+      "EndStructure"
+    ],
+    "description": "Structure definition"
+  },
+  "Global Variable": {
+    "prefix": ["global"],
+    "body": [
+      "Global ${1:variableName}.${2:i}${3: = ${4:value}}"
+    ],
+    "description": "Global variable declaration"
+  },
+  "Protected Variable": {
+    "prefix": ["protected"],
+    "body": [
+      "Protected ${1:variableName}.${2:i}${3: = ${4:value}}"
+    ],
+    "description": "Protected variable declaration"
+  },
+  "Static Variable": {
+    "prefix": ["static"],
+    "body": [
+      "Static ${1:variableName}.${2:i}${3: = ${4:value}}"
+    ],
+    "description": "Static variable declaration"
+  },
+  "NewList": {
+    "prefix": ["newlist"],
+    "body": [
+      "NewList ${1:listName}.${2:s}()"
+    ],
+    "description": "Create a new list"
+  },
+  "Array": {
+    "prefix": ["array"],
+    "body": [
+      "Dim ${1:arrayName}.${2:i}(${3:size})"
+    ],
+    "description": "Array declaration"
+  },
+  "Constant": {
+    "prefix": ["const", "constant"],
+    "body": [
+      "#${1:CONSTANT_NAME} = ${2:value}"
+    ],
+    "description": "Constant definition"
+  },
+  "Module": {
+    "prefix": ["module"],
+    "body": [
+      "Module ${1:ModuleName}",
+      "\t$0",
+      "EndModule"
+    ],
+    "description": "Module definition"
+  },
+  "DeclareModule": {
+    "prefix": ["declmod", "declaremodule"],
+    "body": [
+      "DeclareModule ${1:ModuleName}",
+      "\t${2:// Public interface}",
+      "\tDeclare ${3:FunctionName}(${4:parameters})",
+      "\t$0",
+      "EndDeclareModule"
+    ],
+    "description": "Module declaration"
+  },
+  "Interface": {
+    "prefix": ["interface"],
+    "body": [
+      "Interface ${1:InterfaceName}",
+      "\t${2:MethodName}(${3:parameters})",
+      "\t$0",
+      "EndInterface"
+    ],
+    "description": "Interface definition"
+  },
+  "Enumeration": {
+    "prefix": ["enum", "enumeration"],
+    "body": [
+      "Enumeration ${1:EnumName}",
+      "\t#${2:VALUE1}",
+      "\t#${3:VALUE2}",
+      "\t$0",
+      "EndEnumeration"
+    ],
+    "description": "Enumeration definition"
+  },
+  "Window Creation": {
+    "prefix": ["window", "openwindow"],
+    "body": [
+      "If OpenWindow(${1:0}, ${2:0}, ${3:0}, ${4:400}, ${5:300}, \"${6:Window Title}\", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)",
+      "\t${7:// Window content}",
+      "\t$0",
+      "\tRepeat",
+      "\t\tEvent = WaitWindowEvent()",
+      "\tUntil Event = #PB_Event_CloseWindow",
+      "\tCloseWindow(${1:0})",
+      "EndIf"
+    ],
+    "description": "Basic window creation template"
+  },
+  "Debug Print": {
+    "prefix": ["debug"],
+    "body": [
+      "Debug ${1:\"Debug message: \"} + ${2:variable}"
+    ],
+    "description": "Debug output statement"
+  },
+  "MessageRequester": {
+    "prefix": ["msg", "message"],
+    "body": [
+      "MessageRequester(\"${1:Title}\", \"${2:Message}\", #PB_MessageRequester_Ok)"
+    ],
+    "description": "Message requester dialog"
+  },
+  "File Read": {
+    "prefix": ["fileread"],
+    "body": [
+      "File = ReadFile(#PB_Any, \"${1:filename}\")",
+      "If File",
+      "\tWhile Eof(File) = 0",
+      "\t\tLine$ = ReadString(File)",
+      "\t\t${2:// Process line}",
+      "\tWend",
+      "\tCloseFile(File)",
+      "EndIf"
+    ],
+    "description": "File reading template"
+  },
+  "File Write": {
+    "prefix": ["filewrite"],
+    "body": [
+      "File = CreateFile(#PB_Any, \"${1:filename}\")",
+      "If File",
+      "\tWriteString(File, \"${2:content}\")",
+      "\tCloseFile(File)",
+      "EndIf"
+    ],
+    "description": "File writing template"
+  },
+  "With Statement": {
+    "prefix": ["with"],
+    "body": [
+      "With ${1:object}",
+      "\t\\${2:member} = ${3:value}",
+      "\t$0",
+      "EndWith"
+    ],
+    "description": "With-EndWith statement"
+  },
+  "ProcedureReturn": {
+    "prefix": ["return", "procreturn"],
+    "body": [
+      "ProcedureReturn ${1:value}"
+    ],
+    "description": "Procedure return statement"
+  }
+}

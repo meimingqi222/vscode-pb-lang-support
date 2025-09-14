@@ -6,3 +6,9 @@ src/
 tsconfig.json
 *.ts
 *.map
+coverage/
+test/
+jest.config.js
+tsconfig.test.json
+out/src/**
+out/test/**

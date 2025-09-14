@@ -7,11 +7,47 @@
       "ES2020"
     ],
     "sourceMap": true,
-    "rootDir": "src",
-    "strict": true
+    "rootDir": ".",
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "removeComments": false,
+    "baseUrl": ".",
+    "paths": {
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/server/utils/*"],
+      "@providers/*": ["src/server/providers/*"]
+    }
   },
   "exclude": [
     "node_modules",
-    ".vscode-test"
+    ".vscode-test",
+    "src/server/debug",
+    "src/server/debug/**",
+    "src/debug-adapter",
+    "src/debug-adapter/**"
+  ],
+  "include": [
+    "src/**/*",
+    "test/**/*"
   ]
 }

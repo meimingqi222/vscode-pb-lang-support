@@ -1,21 +1,231 @@
 {
   "name": "vscode-purebasic",
   "displayName": "PureBasic Language Support",
-  "description": "PureBasic language support for Visual Studio Code",
-  "version": "0.0.1",
+  "description": "Comprehensive PureBasic language support with syntax highlighting, IntelliSense, diagnostics, and more",
+  "version": "0.0.2",
+  "publisher": "meimingqi222",
+  "author": {
+    "name": "meimingqi222"
+  },
   "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meimingqi222/vscode-pb-lang-support.git"
+  },
+  "bugs": {
+    "url": "https://github.com/meimingqi222/vscode-pb-lang-support/issues"
+  },
+  "homepage": "https://github.com/meimingqi222/vscode-pb-lang-support#readme",
+  "license": "MIT",
+  "keywords": [
+    "purebasic",
+    "pb",
+    "language",
+    "syntax",
+    "highlighting",
+    "intellisense",
+    "autocomplete"
+  ],
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
-    "Languages",
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets",
+    "Other"
   ],
   "activationEvents": [
-    "onLanguage:purebasic"
+    "onLanguage:purebasic",
+    "onLanguage:purebasic-project"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "PureBasic",
+      "properties": {
+        "purebasic.maxNumberOfProblems": {
+          "type": "number",
+          "default": 100,
+          "minimum": 0,
+          "description": "Maximum number of problems (diagnostics) reported per file."
+        },
+        "purebasic.enableValidation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time syntax validation."
+        },
+        "purebasic.enableCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable IntelliSense completion."
+        },
+        "purebasic.validationDelay": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "Debounce delay (ms) before validating documents."
+        },
+                "purebasic.formatting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable code formatting."
+        },
+        "purebasic.formatting.indentSize": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Number of spaces for indentation."
+        },
+        "purebasic.formatting.tabSize": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Number of spaces per tab."
+        },
+        "purebasic.formatting.insertSpaces": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert spaces instead of tabs."
+        },
+        "purebasic.formatting.trimTrailingWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove trailing whitespace on format."
+        },
+        "purebasic.formatting.trimFinalNewlines": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove final newlines on format."
+        },
+        "purebasic.completion.triggerCharacters": {
+          "type": "array",
+          "default": [
+            ".",
+            "(",
+            "["
+          ],
+          "description": "Characters that trigger automatic completion."
+        },
+        "purebasic.completion.autoClosingPairs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable auto-closing of brackets and quotes."
+        },
+        "purebasic.completion.suggestOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show suggestions while typing."
+        },
+        "purebasic.linting.enableSemanticValidation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable semantic validation beyond syntax."
+        },
+        "purebasic.linting.checkUnusedVariables": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for unused variables and procedures."
+        },
+        "purebasic.linting.checkUndefinedSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for undefined symbols and references."
+        },
+        "purebasic.linting.enableCodeActions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable code actions and quick fixes."
+        },
+        "purebasic.symbols.enableWorkspaceSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable workspace-wide symbol search."
+        },
+        "purebasic.symbols.cacheEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable symbol caching for better performance."
+        },
+        "purebasic.symbols.cacheSize": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "Maximum number of symbols to cache."
+        },
+        "purebasic.performance.enableIncrementalParsing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable incremental parsing for better performance with large files."
+        },
+        "purebasic.performance.maxFileSize": {
+          "type": "number",
+          "default": 1048576,
+          "minimum": 102400,
+          "description": "Maximum file size in bytes for processing (default: 1MB)."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "purebasic.showDiagnostics",
+        "title": "PureBasic: Show Diagnostics",
+        "category": "PureBasic"
+      },
+      {
+        "command": "purebasic.restartLanguageServer",
+        "title": "PureBasic: Restart Language Server",
+        "category": "PureBasic"
+      },
+      {
+        "command": "purebasic.clearSymbolCache",
+        "title": "PureBasic: Clear Symbol Cache",
+        "category": "PureBasic"
+      },
+            {
+        "command": "purebasic.formatDocument",
+        "title": "PureBasic: Format Document",
+        "category": "PureBasic"
+      },
+      {
+        "command": "purebasic.findSymbols",
+        "title": "PureBasic: Find Symbols in Workspace",
+        "category": "PureBasic"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "purebasic.showDiagnostics",
+          "when": "editorLangId == purebasic"
+        },
+        {
+          "command": "purebasic.restartLanguageServer",
+          "when": "editorLangId == purebasic"
+        },
+        {
+          "command": "purebasic.clearSymbolCache",
+          "when": "editorLangId == purebasic"
+        },
+                {
+          "command": "purebasic.formatDocument",
+          "when": "editorLangId == purebasic"
+        },
+        {
+          "command": "purebasic.findSymbols",
+          "when": "editorLangId == purebasic"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "purebasic.formatDocument",
+          "when": "editorLangId == purebasic",
+          "group": "1_modification"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "purebasic",
@@ -60,6 +270,12 @@
         "scopeName": "source.purebasic",
         "path": "./syntaxes/purebasic.tmLanguage.json"
       }
+    ],
+        "snippets": [
+      {
+        "language": "purebasic",
+        "path": "./snippets/purebasic.json"
+      }
     ]
   },
   "scripts": {
@@ -69,7 +285,10 @@
     "webpack": "webpack --mode development",
     "webpack:prod": "webpack --mode production --config webpack.config.js",
     "webpack:watch": "webpack --mode development --watch",
-    "test": "npm run compile && node ./out/test/suite/runTest.js"
+    "test": "jest",
+    "test:unit": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "vscode-languageclient": "^7.0.0",
@@ -77,9 +296,14 @@
     "vscode-languageserver-textdocument": "^1.0.1"
   },
   "devDependencies": {
+    "@jest/globals": "^30.1.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^16.0.0",
     "@types/vscode": "^1.60.0",
+    "jest": "^30.1.3",
+    "jest-environment-node": "^30.1.2",
     "sharp": "^0.34.3",
+    "ts-jest": "^29.4.1",
     "ts-loader": "^9.5.4",
     "typescript": "^4.4.0",
     "vscode-test": "^1.6.0",
