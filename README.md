@@ -556,22 +556,6 @@ interface SymbolEvent {
 }
 ```
 
-## 调试功能说明
-
-### 重要提示
-由于PureBasic的调试器 (PBDebugger.exe) 没有提供外部命令行接口，**本扩展不提供调试功能**。
-
-### 推荐的工作流程
-1. **在VSCode中开发**：使用本扩展进行代码编写、语法检查、自动补全等
-2. **在PureBasic IDE中调试**：使用PureBasic IDE的完整调试功能进行程序调试
-3. **编译选项**：如需调试，请使用PureBasic IDE的编译选项或手动运行 `pbcompiler.exe /DEBUGGER`
-
-### 关于PureBasic调试
-- PBDebugger.exe 是纯GUI应用程序，无命令行接口
-- `/DEBUGGER` 编译选项会自动启动GUI调试器
-- 没有暴露外部调试接口供第三方工具集成
-
-这样的设计确保了扩展的专注性，避免了误导用户，同时保持了代码质量和用户体验。
 
 ## License
 

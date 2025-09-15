@@ -70,6 +70,9 @@ import { generateHash } from './utils/hash-utils';
 // 导入错误处理
 import { initializeErrorHandler } from './utils/error-handler';
 
+// 导入项目管理器
+import { ProjectManager } from './managers/project-manager';
+
 // 创建连接
 const connection = createConnection(ProposedFeatures.all);
 
@@ -90,6 +93,9 @@ const documentHashes: Map<string, string> = new Map();
 // 文档缓存，用于定义跳转和引用查找
 const documentCache: Map<string, TextDocument> = new Map();
 
+// 项目管理器，用于处理.pbp项目文件
+let projectManager: ProjectManager;
+
 connection.onInitialize((params: InitializeParams) => {
     const capabilities = params.capabilities;
 
@@ -105,6 +111,9 @@ connection.onInitialize((params: InitializeParams) => {
         capabilities.textDocument.publishDiagnostics &&
         capabilities.textDocument.publishDiagnostics.relatedInformation
     );
+
+    // 初始化项目管理器
+    projectManager = new ProjectManager(connection);
 
     const result: InitializeResult = {
         capabilities: serverCapabilities
@@ -203,14 +212,20 @@ documents.onDidClose(e => {
     documentSettings.delete(e.document.uri);
     documentHashes.delete(e.document.uri);
     documentCache.delete(e.document.uri);
+    // 通知项目管理器
+    projectManager.onDocumentClose(e.document);
 });
 
 documents.onDidOpen(e => {
     documentCache.set(e.document.uri, e.document);
+    // 通知项目管理器
+    projectManager.onDocumentOpen(e.document);
 });
 
 documents.onDidChangeContent(change => {
     documentCache.set(change.document.uri, change.document);
+    // 通知项目管理器
+    projectManager.onDocumentChange(change.document);
     debouncedValidateTextDocument(change.document);
 });
 
@@ -224,6 +239,11 @@ const safeValidateTextDocument = (textDocument: TextDocument): Promise<void> => 
     const settings = await getDocumentSettings(textDocument.uri);
 
     if (!settings || !settings.enableValidation) {
+        return;
+    }
+
+    // 跳过.pbp项目文件的语法验证（它们是XML格式，不是PureBasic代码）
+    if (textDocument.uri.endsWith('.pbp')) {
         return;
     }
 
@@ -314,7 +334,7 @@ connection.onDefinition((params: DefinitionParams): Location[] => {
     }
 
     try {
-        return handleDefinition(params, document, documentCache);
+        return handleDefinition(params, document, documentCache, projectManager);
     } catch (error) {
         connection.console.error(`Definition error: ${error}`);
         return [];

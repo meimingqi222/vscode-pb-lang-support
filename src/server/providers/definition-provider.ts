@@ -20,7 +20,8 @@ import { analyzeScopesAndVariables } from '../utils/scope-manager';
 export function handleDefinition(
     params: DefinitionParams,
     document: TextDocument,
-    allDocuments: Map<string, TextDocument>
+    allDocuments: Map<string, TextDocument>,
+    projectManager: any
 ): Location[] {
     const text = document.getText();
     const position = params.position;
@@ -84,6 +85,30 @@ export function handleDefinition(
         );
         definitions.push(...moduleSymbolDefs);
     } else {
+        // 首先在项目符号中查找
+        if (projectManager) {
+            const projectSymbol = projectManager.findSymbolDefinition(word, document.uri);
+            if (projectSymbol) {
+                // 将项目符号转换为Location
+                try {
+                    const lines = projectSymbol.file.split('\n');
+                    const definitionLine = lines[projectSymbol.line] || '';
+                    const startPos = definitionLine.indexOf(word);
+                    if (startPos !== -1) {
+                        definitions.push({
+                            uri: projectSymbol.file,
+                            range: {
+                                start: { line: projectSymbol.line, character: startPos },
+                                end: { line: projectSymbol.line, character: startPos + word.length }
+                            }
+                        });
+                    }
+                } catch (error) {
+                    // 忽略转换错误
+                }
+            }
+        }
+
         // 常规查找：遍历所有搜索文档
         for (const doc of searchDocs.values()) {
             const docDefinitions = findDefinitionsInDocument(doc, word);

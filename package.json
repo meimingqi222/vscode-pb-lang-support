@@ -2,7 +2,7 @@
   "name": "vscode-purebasic",
   "displayName": "PureBasic Language Support",
   "description": "Comprehensive PureBasic language support with syntax highlighting, IntelliSense, diagnostics, and more",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "meimingqi222",
   "author": {
     "name": "meimingqi222"
@@ -35,8 +35,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:purebasic",
-    "onLanguage:purebasic-project"
+    "onLanguage:purebasic"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -65,7 +64,7 @@
           "minimum": 0,
           "description": "Debounce delay (ms) before validating documents."
         },
-                "purebasic.formatting.enabled": {
+        "purebasic.formatting.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable code formatting."
@@ -184,7 +183,7 @@
         "title": "PureBasic: Clear Symbol Cache",
         "category": "PureBasic"
       },
-            {
+      {
         "command": "purebasic.formatDocument",
         "title": "PureBasic: Format Document",
         "category": "PureBasic"
@@ -209,7 +208,7 @@
           "command": "purebasic.clearSymbolCache",
           "when": "editorLangId == purebasic"
         },
-                {
+        {
           "command": "purebasic.formatDocument",
           "when": "editorLangId == purebasic"
         },
@@ -235,27 +234,13 @@
         ],
         "extensions": [
           ".pb",
-          ".pbi"
+          ".pbi",
+          ".pbp"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
           "light": "./icons/purebasic.svg",
           "dark": "./icons/purebasic.svg"
-        }
-      },
-      {
-        "id": "purebasic-project",
-        "aliases": [
-          "PureBasic Project",
-          "purebasic-project"
-        ],
-        "extensions": [
-          ".pbp"
-        ],
-        "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "./icons/purebasic-project.svg",
-          "dark": "./icons/purebasic-project.svg"
         }
       }
     ],
@@ -264,14 +249,9 @@
         "language": "purebasic",
         "scopeName": "source.purebasic",
         "path": "./syntaxes/purebasic.tmLanguage.json"
-      },
-      {
-        "language": "purebasic-project",
-        "scopeName": "source.purebasic",
-        "path": "./syntaxes/purebasic.tmLanguage.json"
       }
     ],
-        "snippets": [
+    "snippets": [
       {
         "language": "purebasic",
         "path": "./snippets/purebasic.json"
@@ -291,21 +271,22 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0",
+    "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^7.0.0",
-    "vscode-languageserver-textdocument": "^1.0.1"
+    "vscode-languageserver-textdocument": "^1.0.1",
+    "vscode-uri": "^3.1.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.1.2",
     "@types/jest": "^30.0.0",
-    "@types/node": "^16.0.0",
+    "@types/node": "^24.4.0",
     "@types/vscode": "^1.60.0",
     "jest": "^30.1.3",
     "jest-environment-node": "^30.1.2",
     "sharp": "^0.34.3",
     "ts-jest": "^29.4.1",
     "ts-loader": "^9.5.4",
-    "typescript": "^4.4.0",
+    "typescript": "^5.9.2",
     "vscode-test": "^1.6.0",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"

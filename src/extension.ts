@@ -34,8 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         const clientOptions: LanguageClientOptions = {
             documentSelector: [
-                { scheme: 'file', language: 'purebasic' },
-                { scheme: 'file', language: 'purebasic-project' }
+                { scheme: 'file', language: 'purebasic' }
             ],
             synchronize: {
                 configurationSection: 'purebasic',
@@ -54,21 +53,18 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommands(context);
 
         // Add startup status listener
-        client.onReady().then(() => {
+        console.log('Starting Language Server...');
+        client.start().then(() => {
             console.log('PureBasic Language Server is ready!');
             vscode.window.showInformationMessage('PureBasic Language Server is ready!');
 
             // Setup debug output channel
             debugChannel = vscode.window.createOutputChannel('PureBasic (Debug)');
             debugChannel.appendLine('PureBasic debug channel initialized.');
-        }).catch(error => {
+        }).catch((error: any) => {
             console.error('Language Server failed to start:', error);
             vscode.window.showErrorMessage('PureBasic Language Server failed to start: ' + error.message);
         });
-
-        console.log('Starting Language Server...');
-        client.start();
-        console.log('Language Server start command sent');
 
     } catch (error) {
         console.error('Error activating extension:', error);
@@ -111,7 +107,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // Format document command
     const formatDocument = vscode.commands.registerCommand('purebasic.formatDocument', async () => {
         const editor = vscode.window.activeTextEditor;
-        if (editor && (editor.document.languageId === 'purebasic' || editor.document.languageId === 'purebasic-project')) {
+        if (editor && editor.document.languageId === 'purebasic') {
             try {
                 await vscode.commands.executeCommand('editor.action.formatDocument');
             } catch (error) {

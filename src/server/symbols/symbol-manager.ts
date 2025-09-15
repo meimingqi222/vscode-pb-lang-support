@@ -14,6 +14,11 @@ import { ParsedDocument } from './optimized-symbol-parser';
  * @deprecated 使用 optimizedSymbolParser.parseDocumentSymbols 替代
  */
 export function parseDocumentSymbols(uri: string, text: string): void {
+    // 跳过.pbp项目文件的符号解析（它们是XML格式，不是PureBasic代码）
+    if (uri.endsWith('.pbp')) {
+        return;
+    }
+
     // 使用优化的解析器
     optimizedSymbolParser.parseDocumentSymbols(uri, text).catch(error => {
         console.error('Symbol parsing error:', error);
