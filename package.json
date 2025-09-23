@@ -1,7 +1,7 @@
 {
   "name": "vscode-purebasic",
-  "displayName": "PureBasic Language Support",
-  "description": "Comprehensive PureBasic language support with syntax highlighting, IntelliSense, diagnostics, and more",
+  "displayName": "PureBasic Enhanced",
+  "description": "PureBasic language support for Visual Studio Code with syntax highlighting, language server, and development tools",
   "version": "0.0.3",
   "publisher": "meimingqi222",
   "author": {
