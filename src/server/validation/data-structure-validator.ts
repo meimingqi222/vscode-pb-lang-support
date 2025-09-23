@@ -18,6 +18,23 @@ export const validateDataStructures: ValidatorFunction = (
 ) => {
     // Structure 验证
     if (line.startsWith('Structure ')) {
+        // 单行 Structure ... : EndStructure -> 不入栈
+        const hasInlineEnd = /\bEndStructure\b/.test(line);
+        if (hasInlineEnd) {
+            // 只做语法头校验，不入栈
+            const structMatch = line.match(/^Structure\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (!structMatch) {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: { line: lineNum, character: 0 },
+                        end: { line: lineNum, character: originalLine.length }
+                    },
+                    message: 'Invalid Structure syntax. Expected: Structure Name',
+                    source: 'purebasic'
+                });
+            }
+        } else {
         const structMatch = line.match(/^Structure\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!structMatch) {
             diagnostics.push({
@@ -32,7 +49,8 @@ export const validateDataStructures: ValidatorFunction = (
         } else {
             context.structureStack.push({ name: structMatch[1], line: lineNum });
         }
-    } else if (line === 'EndStructure') {
+    }
+    } else if (/^EndStructure\b/.test(line)) {
         if (context.structureStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
@@ -68,6 +86,7 @@ export const validateDataStructures: ValidatorFunction = (
 
     // Interface 验证
     else if (line.startsWith('Interface ')) {
+        const hasInlineEnd = /\bEndInterface\b/.test(line);
         const intfMatch = line.match(/^Interface\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!intfMatch) {
             diagnostics.push({
@@ -79,10 +98,10 @@ export const validateDataStructures: ValidatorFunction = (
                 message: 'Invalid Interface syntax. Expected: Interface Name',
                 source: 'purebasic'
             });
-        } else {
+        } else if (!hasInlineEnd) {
             context.interfaceStack.push(lineNum);
         }
-    } else if (line === 'EndInterface') {
+    } else if (/^EndInterface\b/.test(line)) {
         if (context.interfaceStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,

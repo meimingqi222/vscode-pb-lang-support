@@ -38,7 +38,7 @@ function parseDocumentSymbolsFallback(uri: string, text: string): void {
         const line = lines[i].trim();
 
         // 解析过程定义（包括返回类型）
-        const procMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
+        const procMatch = line.match(/^Procedure(?:C|DLL|CDLL)?\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (procMatch) {
             symbols.push({
                 name: procMatch[2],

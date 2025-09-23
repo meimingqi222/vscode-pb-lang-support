@@ -5,9 +5,10 @@
 
 export const keywords = [
     'If', 'Then', 'Else', 'ElseIf', 'EndIf', 'For', 'Next', 'Step', 'To',
-    'While', 'Wend', 'Repeat', 'Until', 'Forever', 'Select', 'Case', 'Default', 'EndSelect',
-    'Break', 'Continue', 'Goto', 'Gosub', 'Return', 'End', 'Procedure',
-    'EndProcedure', 'ProcedureReturn', 'Declare', 'Prototype', 'Interface', 'EndInterface',
+    'While', 'Wend', 'Repeat', 'Until', 'ForEver', 'Select', 'Case', 'Default', 'EndSelect',
+    'Break', 'Continue', 'Goto', 'Gosub', 'Return', 'End',
+    'Procedure', 'ProcedureC', 'ProcedureDLL', 'ProcedureCDLL',
+    'EndProcedure', 'ProcedureReturn', 'Declare', 'DeclareC', 'DeclareDLL', 'DeclareCDLL', 'Prototype', 'Interface', 'EndInterface',
     'Structure', 'EndStructure', 'Enumeration', 'EndEnumeration', 'Data', 'Read',
     'Restore', 'NewList', 'AddElement', 'InsertElement', 'DeleteElement',
     'ClearList', 'ListIndex', 'ResetList', 'NextElement', 'PreviousElement',

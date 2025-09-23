@@ -39,16 +39,37 @@ export function handleDocumentSymbol(
         const moduleMatch = trimmedLine.match(/^Module\s+(\w+)\b/i);
         if (moduleMatch) {
             const name = moduleMatch[1];
-            const range = createRange(i, line.indexOf(name), name.length);
-
-            currentModule = {
-                name,
-                kind: SymbolKind.Module,
-                range,
-                selectionRange: range,
-                children: []
+            const nameStart = Math.max(0, line.indexOf(name));
+            const selectionRange = createRange(i, nameStart, name.length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
             };
-            symbols.push(currentModule);
+
+            // 检查是否是单行模块 (Module ... : EndModule)
+            const isSingleLine = trimmedLine.includes(':') && trimmedLine.includes('EndModule');
+
+            if (isSingleLine) {
+                // 单行模块直接添加到符号列表，不设置currentModule
+                const singleLineModule: DocumentSymbol = {
+                    name,
+                    kind: SymbolKind.Module,
+                    range: blockRange,
+                    selectionRange,
+                    children: []
+                };
+                symbols.push(singleLineModule);
+            } else {
+                // 多行模块设置currentModule
+                currentModule = {
+                    name,
+                    kind: SymbolKind.Module,
+                    range: blockRange,
+                    selectionRange,
+                    children: []
+                };
+                symbols.push(currentModule);
+            }
             continue;
         }
 
@@ -62,13 +83,18 @@ export function handleDocumentSymbol(
         const structMatch = trimmedLine.match(/^Structure\s+(\w+)\b/i);
         if (structMatch) {
             const name = structMatch[1];
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = Math.max(0, line.indexOf(name));
+            const selectionRange = createRange(i, nameStart, name.length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             const structSymbol: DocumentSymbol = {
                 name,
                 kind: SymbolKind.Struct,
-                range,
-                selectionRange: range,
+                range: blockRange,
+                selectionRange,
                 children: []
             };
 
@@ -91,13 +117,18 @@ export function handleDocumentSymbol(
         const interfaceMatch = trimmedLine.match(/^Interface\s+(\w+)\b/i);
         if (interfaceMatch) {
             const name = interfaceMatch[1];
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = Math.max(0, line.indexOf(name));
+            const selectionRange = createRange(i, nameStart, name.length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             const interfaceSymbol: DocumentSymbol = {
                 name,
                 kind: SymbolKind.Interface,
-                range,
-                selectionRange: range,
+                range: blockRange,
+                selectionRange,
                 children: []
             };
 
@@ -113,13 +144,18 @@ export function handleDocumentSymbol(
         const enumMatch = trimmedLine.match(/^Enumeration\s+(\w+)?\b/i);
         if (enumMatch) {
             const name = enumMatch[1] || 'Anonymous';
-            const range = createRange(i, 0, line.length);
+            const nameStart = enumMatch[1] ? Math.max(0, line.indexOf(enumMatch[1])) : 0;
+            const selectionRange = createRange(i, nameStart, (enumMatch[1] || '').length || line.trim().length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             currentEnumeration = {
                 name,
                 kind: SymbolKind.Enum,
-                range,
-                selectionRange: range,
+                range: blockRange,
+                selectionRange,
                 children: []
             };
 
@@ -138,18 +174,23 @@ export function handleDocumentSymbol(
         }
 
         // 过程定义
-        const procMatch = trimmedLine.match(/^Procedure(?:\.(\w+))?\s+(\w+)\s*\(/i);
+        const procMatch = trimmedLine.match(/^Procedure(?:C|DLL|CDLL)?(?:\.(\w+))?\s+(\w+)\s*\(/i);
         if (procMatch) {
             const returnType = procMatch[1];
             const name = procMatch[2];
             const displayName = returnType ? `${name}() : ${returnType}` : `${name}()`;
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = Math.max(0, line.indexOf(name));
+            const selectionRange = createRange(i, nameStart, name.length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             currentProcedure = {
                 name: displayName,
                 kind: SymbolKind.Function,
-                range,
-                selectionRange: range,
+                range: blockRange,
+                selectionRange,
                 children: []
             };
 
@@ -168,7 +209,7 @@ export function handleDocumentSymbol(
         }
 
         // 过程声明
-        const declareMatch = trimmedLine.match(/^Declare(?:\.(\w+))?\s+(\w+)\s*\(/i);
+        const declareMatch = trimmedLine.match(/^Declare(?:C|DLL|CDLL)?(?:\.(\w+))?\s+(\w+)\s*\(/i);
         if (declareMatch) {
             const returnType = declareMatch[1];
             const name = declareMatch[2];

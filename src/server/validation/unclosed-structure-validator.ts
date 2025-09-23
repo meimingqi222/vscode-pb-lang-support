@@ -65,7 +65,7 @@ export function validateUnclosedStructures(
         addDiag(line, 'Unclosed While. Missing Wend.');
     }
     for (const line of context.repeatStack) {
-        addDiag(line, 'Unclosed Repeat. Missing Until.');
+        addDiag(line, 'Unclosed Repeat. Missing Until/ForEver.');
     }
     for (const line of context.selectStack) {
         addDiag(line, 'Unclosed Select. Missing EndSelect.');

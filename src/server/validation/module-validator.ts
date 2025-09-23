@@ -18,6 +18,8 @@ export const validateModules: ValidatorFunction = (
 ) => {
     // Module 验证
     if (line.startsWith('Module ')) {
+        // 单行 Module ... : EndModule -> 不入栈
+        const hasInlineEnd = /\bEndModule\b/.test(line);
         const moduleMatch = line.match(/^Module\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!moduleMatch) {
             diagnostics.push({
@@ -29,10 +31,10 @@ export const validateModules: ValidatorFunction = (
                 message: 'Invalid Module syntax. Expected: Module Name',
                 source: 'purebasic'
             });
-        } else {
+        } else if (!hasInlineEnd) {
             context.moduleStack.push({ name: moduleMatch[1], line: lineNum });
         }
-    } else if (line === 'EndModule') {
+    } else if (/^EndModule\b/.test(line)) {
         if (context.moduleStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
@@ -50,6 +52,7 @@ export const validateModules: ValidatorFunction = (
 
     // DeclareModule 验证
     else if (line.startsWith('DeclareModule ')) {
+        const hasInlineEnd = /\bEndDeclareModule\b/.test(line);
         const declModMatch = line.match(/^DeclareModule\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!declModMatch) {
             diagnostics.push({
@@ -61,10 +64,10 @@ export const validateModules: ValidatorFunction = (
                 message: 'Invalid DeclareModule syntax. Expected: DeclareModule Name',
                 source: 'purebasic'
             });
-        } else {
+        } else if (!hasInlineEnd) {
             context.declareModuleStack.push({ name: declModMatch[1], line: lineNum });
         }
-    } else if (line === 'EndDeclareModule') {
+    } else if (/^EndDeclareModule\b/.test(line)) {
         if (context.declareModuleStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,

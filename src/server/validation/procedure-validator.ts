@@ -18,9 +18,14 @@ export const validateProcedure: ValidatorFunction = (
     context: ValidationContext,
     diagnostics
 ) => {
-    if (line.startsWith('Procedure') && line.length > 9 && !line.startsWith('ProcedureReturn')) {
-        // 验证过程定义语法（先获取返回类型与过程名，不直接用正则捕获参数以避免嵌套括号问题）
-        const headerMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
+    if (/^Procedure(?:C|DLL|CDLL)?\b/i.test(line) && !/^ProcedureReturn\b/i.test(line)) {
+        // 单行 Procedure/ProcedureC/ProcedureDLL/ProcedureCDLL ... : EndProcedure -> 不入栈
+        const hasInlineEnd = /\bEndProcedure\b/i.test(line);
+        if (hasInlineEnd) {
+            return;
+        }
+        // 验证过程定义语法（支持调用约定；先获取返回类型与过程名）
+        const headerMatch = line.match(/^Procedure(?:C|DLL|CDLL)?\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/i);
         if (!headerMatch) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
@@ -59,7 +64,7 @@ export const validateProcedure: ValidatorFunction = (
                 }
             }
         }
-    } else if (line === 'EndProcedure') {
+    } else if (/^EndProcedure\b/i.test(line)) {
         // 验证EndProcedure
         if (context.procedureStack.length === 0) {
             diagnostics.push({
@@ -74,7 +79,7 @@ export const validateProcedure: ValidatorFunction = (
         } else {
             context.procedureStack.pop();
         }
-    } else if (line.startsWith('ProcedureReturn')) {
+    } else if (/^ProcedureReturn\b/i.test(line)) {
         // 验证ProcedureReturn
         if (context.procedureStack.length === 0) {
             diagnostics.push({
