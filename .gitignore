@@ -13,8 +13,8 @@ build/
 vscode-purebasic-*.vsix
 
 # IDE files
-.vscode/
-.vscode/settings.json
+.vscode/*
+!.vscode/launch.json
 .idea/
 *.swp
 *.swo
