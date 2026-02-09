@@ -243,19 +243,26 @@ function isUserDefinedSymbol(
                 return true;
             }
 
-            // 检查变量定义
+            // Check variable definitions
             const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${word})(?:\\.\\w+)?`, 'i'));
             if (varMatch) {
                 return true;
             }
 
-            // 检查常量定义
-            const constMatch = line.match(new RegExp(`^#(${word})\\s*=`, 'i'));
+            // Check constant definitions
+            function escapeRegExp(text: string): string {
+                return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            const baseWord = word.endsWith('$') ? word.slice(0, -1) : word;
+            const safeWord = escapeRegExp(baseWord);
+
+            const constMatch = line.match(new RegExp(`^#(${safeWord}\\$?)\\s*=`, 'i'));
             if (constMatch) {
                 return true;
             }
 
-            // 检查结构体定义
+            // Check the structure definition
             const structMatch = line.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
             if (structMatch) {
                 return true;

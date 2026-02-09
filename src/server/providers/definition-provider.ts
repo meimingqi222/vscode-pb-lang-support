@@ -367,15 +367,24 @@ function findDefinitionsInDocument(document: TextDocument, word: string): Locati
             });
         }
 
-        // 查找常量定义
-        const constMatch = line.match(new RegExp(`^#(${word})\\s*=`, 'i'));
+        // Look up constant definitions
+        function escapeRegExp(text: string): string {
+            return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        const baseWord = word.endsWith('$') ? word.slice(0, -1) : word;
+        const safeWord = escapeRegExp(baseWord);
+
+        const constMatch = line.match(new RegExp(`^#(${safeWord}\\$?)\\s*=`, 'i'));
         if (constMatch) {
             const startChar = lines[i].indexOf('#') + 1;
+            const matchedName = constMatch[1];
+
             definitions.push({
                 uri: document.uri,
                 range: {
                     start: { line: i, character: startChar },
-                    end: { line: i, character: startChar + word.length }
+                    end: { line: i, character: startChar + matchedName.length }
                 }
             });
         }
@@ -450,12 +459,19 @@ function findModuleSymbolDefinition(
             if (mStart) { inModule = true; continue; }
             if (line.match(/^EndModule\b/i)) { inModule = false; continue; }
 
-            // 在 DeclareModule 中查找常量、结构、接口、枚举名
+            // Search for constant, structure, interface, and enumeration names in DeclareModule
             if (inDeclare) {
-                const constMatch = line.match(new RegExp(`^#(${ident})\\b`, 'i'));
+                const constMatch = line.match(new RegExp(`^#(${ident}\\$?)\\b`, 'i'));
                 if (constMatch) {
-                    const startChar = raw.indexOf('#' + constMatch[1]) + 1;
-                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + ident.length } } });
+                    const matchedName = constMatch[1];
+                    const startChar = raw.indexOf('#' + matchedName) + 1;
+                    defs.push({
+                        uri: doc.uri,
+                        range: {
+                            start: { line: i, character: startChar },
+                            end: { line: i, character: startChar + matchedName.length }
+                        }
+                    });
                 }
                 const structMatch = line.match(new RegExp(`^Structure\\s+(${ident})\\b`, 'i'));
                 if (structMatch) {
@@ -474,12 +490,19 @@ function findModuleSymbolDefinition(
                 }
             }
 
-            // 在 Module 中也允许出现常量/结构（较少见，但容错）
+            // Constants/structures are also permitted in modules (less common, but error-tolerant)
             if (inModule) {
-                const constMatch = line.match(new RegExp(`^#(${ident})\\b`, 'i'));
+                const constMatch = line.match(new RegExp(`^#(${ident}\\$?)\\b`, 'i'));
                 if (constMatch) {
-                    const startChar = raw.indexOf('#' + constMatch[1]) + 1;
-                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + ident.length } } });
+                    const matchedName = constMatch[1];
+                    const startChar = raw.indexOf('#' + matchedName) + 1;
+                    defs.push({
+                        uri: doc.uri,
+                        range: {
+                            start: { line: i, character: startChar },
+                            end: { line: i, character: startChar + matchedName.length }
+                        }
+                    });
                 }
                 const structMatch = line.match(new RegExp(`^Structure\\s+(${ident})\\b`, 'i'));
                 if (structMatch) {

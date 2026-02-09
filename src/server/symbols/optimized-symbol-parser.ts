@@ -333,8 +333,8 @@ export class OptimizedSymbolParser {
                 });
             }
 
-            // 解析常量定义
-            const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+            // Parsing constant definitions
+            const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=\s*([^;]*)/);
             if (constMatch) {
                 symbols.push({
                     name: constMatch[1],
@@ -348,7 +348,7 @@ export class OptimizedSymbolParser {
                 });
             }
 
-            // 解析变量定义
+            // Parsing variable definitions
             const varMatch = line.match(/^(?:Global|Protected|Static|Shared|Threaded)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[.](\w+)/);
             if (varMatch) {
                 symbols.push({

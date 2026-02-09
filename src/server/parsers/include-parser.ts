@@ -142,9 +142,9 @@ export function parseIncludedSymbols(document: TextDocument): Map<string, any> {
             }
         }
 
-        // 解析常量定义
+        // Parsing constant definitions
         if (line.startsWith('#')) {
-            const constMatch = line.match(/#\s*(\w+)\s*=/);
+            const constMatch = line.match(/#\s*([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=/);
             if (constMatch) {
                 const constName = constMatch[1];
                 symbols.set(constName, {
