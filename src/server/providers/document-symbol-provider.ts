@@ -232,7 +232,7 @@ export function handleDocumentSymbol(
         }
 
         // 常量定义
-        const constMatch = trimmedLine.match(/^#(\w+)\s*=/i);
+        const constMatch = trimmedLine.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=/);
         if (constMatch) {
             const name = constMatch[1];
             const range = createRange(i, line.indexOf('#' + name), name.length + 1);
