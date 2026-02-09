@@ -35,7 +35,7 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 模块定义
+        // Module Definition
         const moduleMatch = trimmedLine.match(/^Module\s+(\w+)\b/i);
         if (moduleMatch) {
             const name = moduleMatch[1];
@@ -46,11 +46,11 @@ export function handleDocumentSymbol(
                 end: { line: i, character: line.length }
             };
 
-            // 检查是否是单行模块 (Module ... : EndModule)
+            // Check if it is a single-line module (Module ... : EndModule)
             const isSingleLine = trimmedLine.includes(':') && trimmedLine.includes('EndModule');
 
             if (isSingleLine) {
-                // 单行模块直接添加到符号列表，不设置currentModule
+                //Single-line modules are added directly to the symbol list without setting the currentModule.
                 const singleLineModule: DocumentSymbol = {
                     name,
                     kind: SymbolKind.Module,
@@ -60,7 +60,7 @@ export function handleDocumentSymbol(
                 };
                 symbols.push(singleLineModule);
             } else {
-                // 多行模块设置currentModule
+                // Multi-line module configuration for currentModule to allow nested symbols until EndModule is found.
                 currentModule = {
                     name,
                     kind: SymbolKind.Module,
@@ -73,13 +73,13 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 模块结束
+        // Module end
         if (trimmedLine.match(/^EndModule\b/i)) {
             currentModule = null;
             continue;
         }
 
-        // 结构体定义
+        // Structure definition
         const structMatch = trimmedLine.match(/^Structure\s+(\w+)\b/i);
         if (structMatch) {
             const name = structMatch[1];
@@ -107,13 +107,13 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 结构体结束
+        // End of struct
         if (trimmedLine.match(/^EndStructure\b/i)) {
             currentStructure = null;
             continue;
         }
 
-        // 接口定义
+        // Interface definition
         const interfaceMatch = trimmedLine.match(/^Interface\s+(\w+)\b/i);
         if (interfaceMatch) {
             const name = interfaceMatch[1];
@@ -140,7 +140,7 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 枚举定义
+        // Enumeration definition
         const enumMatch = trimmedLine.match(/^Enumeration\s+(\w+)?\b/i);
         if (enumMatch) {
             const name = enumMatch[1] || 'Anonymous';
@@ -167,13 +167,13 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 枚举结束
+        // End of enumeration
         if (trimmedLine.match(/^EndEnumeration\b/i)) {
             currentEnumeration = null;
             continue;
         }
 
-        // 过程定义
+        // Procedure definition
         const procMatch = trimmedLine.match(/^Procedure(?:C|DLL|CDLL)?(?:\.(\w+))?\s+(\w+)\s*\(/i);
         if (procMatch) {
             const returnType = procMatch[1];
