@@ -363,7 +363,7 @@ function extractModuleExports(text: string, moduleName: string): {
                 continue;
             }
 
-            const constMatch = line.match(/^#(\w+)\s*(?:=\s*(.+))?/);
+            const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*(?:=\s*(.+))?/);
             if (constMatch) {
                 constants.push({ name: constMatch[1], value: constMatch[2] });
                 continue;

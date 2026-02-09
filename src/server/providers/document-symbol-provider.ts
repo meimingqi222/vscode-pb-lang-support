@@ -231,7 +231,7 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 常量定义
+        // Constant definitions
         const constMatch = trimmedLine.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=/);
         if (constMatch) {
             const name = constMatch[1];

@@ -127,8 +127,8 @@ function parseDocumentSymbolsFallback(uri: string, text: string): void {
             });
         }
 
-        // 解析常量定义
-        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+        // Parsing constant definitions
+        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=\s*([^;]*)/);
         if (constMatch) {
             symbols.push({
                 name: constMatch[1],
@@ -249,8 +249,8 @@ function parseSingleSymbol(line: string, lineIndex: number): PureBasicSymbol | n
         };
     }
 
-    // 解析常量定义
-    const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+    // Parsing constant definitions
+    const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=\s*([^;]*)/);
     if (constMatch) {
         return {
             name: constMatch[1],
@@ -268,14 +268,14 @@ function parseSingleSymbol(line: string, lineIndex: number): PureBasicSymbol | n
 }
 
 /**
- * 获取符号缓存统计信息
+ * Retrieve symbol cache statistics
  */
 export function getSymbolCacheStats() {
     return symbolCache.getCacheStats();
 }
 
 /**
- * 获取性能统计信息
+ * Retrieve performance statistics
  */
 export function getPerformanceStats() {
     return optimizedSymbolParser.getPerformanceStats();

@@ -301,20 +301,31 @@ function findReferencesInDocument(
                 });
             }
 
-            // 查找常量定义
-            const constMatch = trimmedLine.match(new RegExp(`^#(${word})\\s*=`, 'i'));
+            // Look up constant definitions
+            function escapeRegExp(text: string): string {
+                return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            // Normalize: NAME should also match NAME$
+            const baseWord = word.endsWith('$') ? word.slice(0, -1) : word;
+            const safeWord = escapeRegExp(baseWord);
+
+            const constMatch = trimmedLine.match(new RegExp(`^#(${safeWord}\\$?)\\s*=`, 'i'));
             if (constMatch) {
+                const matchedName = constMatch[1];
                 const startChar = line.indexOf('#') + 1;
+
                 references.push({
                     uri: document.uri,
                     range: {
                         start: { line: i, character: startChar },
-                        end: { line: i, character: startChar + word.length }
+                        end: { line: i, character: startChar + matchedName.length }
                     }
                 });
             }
 
-            // 查找变量定义
+
+            // Look up variable definitions
             const varMatch = trimmedLine.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+([^\\s,]+\\s+)?\\*?(${word})(?:\\.\\w+|\\[|\\s|$)`, 'i'));
             if (varMatch) {
                 const varName = varMatch[3];

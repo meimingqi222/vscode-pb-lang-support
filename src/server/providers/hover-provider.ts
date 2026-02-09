@@ -318,20 +318,29 @@ function findSymbolInfo(
                 };
             }
 
-            // 查找常量定义
-            const constMatch = line.match(new RegExp(`^#(${word})\\s*=\\s*(.+)`, 'i'));
+            // Look up constant definitions (#NAME = ... or #NAME$ = ...)
+            function escapeRegExp(text: string): string {
+                return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            // Normalize: allow looking up NAME -> matches NAME$
+            const baseWord = word.endsWith('$') ? word.slice(0, -1) : word;
+            const safeWord = escapeRegExp(baseWord);
+            
+            const constMatch = line.match(new RegExp(`^#(${safeWord}\\$?)\\s*=\\s*(.+)`, 'i'));
             if (constMatch) {
+                const matchedName = constMatch[1];
                 const value = constMatch[2];
 
                 return {
                     type: 'constant',
-                    name: word,
+                    name: matchedName,
                     value,
                     documentation: `Constant with value: ${value}`
                 };
             }
 
-            // 查找结构体定义
+            // Find structure definitions
             const structMatch = line.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
             if (structMatch) {
                 return {

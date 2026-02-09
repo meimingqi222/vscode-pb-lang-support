@@ -571,18 +571,18 @@ function getTriggerContext(linePrefix: string): {
     // 检查是否在点后面 (成员访问)
     const isAfterDot = linePrefix.trim().endsWith('.');
 
-    // 检查是否在模块操作符后面：Module:: 或 Module::# 或 Module::前缀
-    const moduleConstMatch = linePrefix.match(/(\w+)::#(\w*)$/);
-    const moduleMatch = moduleConstMatch || linePrefix.match(/(\w+)::(\w*)$/);
+    // Check if it follows the module operator: Module:: or Module::# or Module:: prefix
+    const moduleConstMatch = linePrefix.match(/([a-zA-Z_]\w*)::#([a-zA-Z_]\w*\$?)$/);
+    const moduleMatch = moduleConstMatch || linePrefix.match(/([a-zA-Z_]\w*)::(\w*)$/);
     const isAfterModuleOperator = !!moduleMatch;
     const moduleName = moduleMatch ? moduleMatch[1] : '';
     const moduleMemberPrefix = moduleConstMatch ? '' : (moduleMatch ? moduleMatch[2] : '');
     const isModuleConstantContext = !!moduleConstMatch;
     const moduleConstPrefix = moduleConstMatch ? moduleConstMatch[2] : '';
 
-    // 检查是否在常量上下文：#Name...
-    const constMatch = linePrefix.match(/#(\w*)$/);
-    const isConstantContext = !!constMatch && !isAfterModuleOperator; // 非模块的 #
+    // Check if in constant context: #Name... (but not after Module::)
+    const constMatch = linePrefix.match(/#([a-zA-Z_]\w*\$?)?$/);
+    const isConstantContext = !!constMatch && !isAfterModuleOperator; // Non-module #
     const constPrefix = constMatch ? constMatch[1] : '';
 
     // 检查是否为结构体成员访问 var\member
@@ -729,8 +729,8 @@ function analyzeDocumentSymbols(document: any, symbols: any) {
             });
         }
 
-        // 查找常量定义
-        const constMatch = line.match(/^#(\w+)\s*=\s*(.+)?/i);
+        // Look up constant definitions
+        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=\s*(.+)?/i);
         if (constMatch) {
             const name = constMatch[1];
             const value = constMatch[2];
