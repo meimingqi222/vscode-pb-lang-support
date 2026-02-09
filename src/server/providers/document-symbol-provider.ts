@@ -1,6 +1,6 @@
 /**
- * 文档符号提供者
- * 为PureBasic提供文档大纲和符号导航功能
+ * Documentation Symbol Provider
+ * Provides documentation outline and symbol navigation functionality for PureBasic
  */
 
 import {
@@ -12,7 +12,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
- * 处理文档符号请求
+ * Handle document symbol requests
  */
 export function handleDocumentSymbol(
     params: DocumentSymbolParams,
@@ -202,25 +202,30 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 过程结束
+        // Procedure complete
         if (trimmedLine.match(/^EndProcedure\b/i)) {
             currentProcedure = null;
             continue;
         }
 
-        // 过程声明
+        // Procedure declaration
         const declareMatch = trimmedLine.match(/^Declare(?:C|DLL|CDLL)?(?:\.(\w+))?\s+(\w+)\s*\(/i);
         if (declareMatch) {
             const returnType = declareMatch[1];
             const name = declareMatch[2];
             const displayName = returnType ? `${name}() : ${returnType}` : `${name}()`;
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = safeIndexOf(line, name);
+            const selectionRange = createRange(i, nameStart, name.length);
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             const declareSymbol: DocumentSymbol = {
                 name: displayName,
                 kind: SymbolKind.Function,
-                range,
-                selectionRange: range
+                range: blockRange,
+                selectionRange
             };
 
             if (currentModule) {
@@ -231,17 +236,22 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 常量定义
+        // Constant definitions
         const constMatch = trimmedLine.match(/^#([a-zA-Z_][a-zA-Z0-9_]*\$?)\s*=/);
         if (constMatch) {
             const name = constMatch[1];
-            const range = createRange(i, line.indexOf('#' + name), name.length + 1);
+            const hashStart = safeIndexOf(line, `#${name}`);
+            const selectionRange = createRange(i, hashStart + 1, name.length); // only NAME / NAME$
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             const constSymbol: DocumentSymbol = {
                 name: `#${name}`,
                 kind: SymbolKind.Constant,
-                range,
-                selectionRange: range
+                range: blockRange,
+                selectionRange
             };
 
             if (currentEnumeration) {
@@ -254,20 +264,26 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 全局变量
+        // Global variables
         const globalMatch = trimmedLine.match(/^(Global|Protected|Static)\s+(?:\w+\s+)?(\*?\w+)(?:\.(\w+))?/i);
         if (globalMatch) {
             const scope = globalMatch[1];
             const name = globalMatch[2];
             const type = globalMatch[3] || 'unknown';
             const displayName = `${name} : ${type}`;
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = safeIndexOf(line, name);
+            const selectionRange = createRange(i, nameStart, name.length);
+
+            const blockRange: Range = {
+                start: { line: i, character: 0 },
+                end: { line: i, character: line.length }
+            };
 
             const varSymbol: DocumentSymbol = {
                 name: displayName,
                 kind: SymbolKind.Variable,
-                range,
-                selectionRange: range,
+                range: blockRange,
+                selectionRange,
                 detail: scope
             };
 
@@ -279,27 +295,33 @@ export function handleDocumentSymbol(
             continue;
         }
 
-        // 结构体成员
+        // Structure members
         if (currentStructure) {
             const memberMatch = trimmedLine.match(/^(\*?\w+)(?:\.(\w+))?/);
             if (memberMatch && !trimmedLine.match(/^(Global|Protected|Static|Procedure|EndStructure|;)/i)) {
                 const name = memberMatch[1];
                 const type = memberMatch[2] || 'unknown';
                 const displayName = `${name} : ${type}`;
-                const range = createRange(i, line.indexOf(name), name.length);
+                const nameStart = safeIndexOf(line, name);
+                const selectionRange = createRange(i, nameStart, name.length);
+
+                const blockRange: Range = {
+                    start: { line: i, character: 0 },
+                    end: { line: i, character: line.length }
+                };
 
                 const memberSymbol: DocumentSymbol = {
                     name: displayName,
                     kind: SymbolKind.Field,
-                    range,
-                    selectionRange: range
+                    range: blockRange,
+                    selectionRange
                 };
 
                 currentStructure.children!.push(memberSymbol);
             }
         }
 
-        // 局部变量（在过程内）
+        // Local variables (within a procedure)
         if (currentProcedure) {
             const localVarMatch = trimmedLine.match(/^(Protected|Static|Define|Dim)\s+(?:\w+\s+)?(\*?\w+)(?:\.(\w+))?/i);
             if (localVarMatch) {
@@ -307,13 +329,19 @@ export function handleDocumentSymbol(
                 const name = localVarMatch[2];
                 const type = localVarMatch[3] || 'unknown';
                 const displayName = `${name} : ${type}`;
-                const range = createRange(i, line.indexOf(name), name.length);
+                const nameStart = safeIndexOf(line, name);
+                const selectionRange = createRange(i, nameStart, name.length);
+
+                const blockRange: Range = {
+                    start: { line: i, character: 0 },
+                    end: { line: i, character: line.length }
+                };
 
                 const varSymbol: DocumentSymbol = {
                     name: displayName,
                     kind: SymbolKind.Variable,
-                    range,
-                    selectionRange: range,
+                    range: blockRange,
+                    selectionRange,
                     detail: scope
                 };
 
@@ -322,14 +350,21 @@ export function handleDocumentSymbol(
         }
     }
 
-    // 更新范围以包含整个定义
+    // Update the scope to include the entire definition
     updateSymbolRanges(symbols, lines);
+    sortSymbolsStable(symbols);
 
+    // for Debug output only
+    console.log('symbols.length', symbols.length);
+    if (symbols.length > 0) {
+        console.log('first symbol', symbols[0].name, symbols[0].range, symbols[0].selectionRange);
+    }
+    
     return symbols;
 }
 
 /**
- * 创建范围对象
+ * Creates a range object
  */
 function createRange(line: number, startChar: number, length: number): Range {
     return {
@@ -339,12 +374,12 @@ function createRange(line: number, startChar: number, length: number): Range {
 }
 
 /**
- * 更新符号范围以包含整个定义
+ * Updates symbol ranges to include the full definition block
  */
 function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
     for (const symbol of symbols) {
         if (symbol.kind === SymbolKind.Module) {
-            // 查找对应的EndModule
+            // Find the corresponding EndModule
             const startLine = symbol.range.start.line;
             for (let i = startLine + 1; i < lines.length; i++) {
                 if (lines[i].trim().match(/^EndModule\b/i)) {
@@ -353,7 +388,7 @@ function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
                 }
             }
         } else if (symbol.kind === SymbolKind.Function) {
-            // 查找对应的EndProcedure
+            // Find the corresponding EndProcedure
             const startLine = symbol.range.start.line;
             for (let i = startLine + 1; i < lines.length; i++) {
                 if (lines[i].trim().match(/^EndProcedure\b/i)) {
@@ -362,7 +397,7 @@ function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
                 }
             }
         } else if (symbol.kind === SymbolKind.Struct) {
-            // 查找对应的EndStructure
+            // Find the corresponding EndStructure
             const startLine = symbol.range.start.line;
             for (let i = startLine + 1; i < lines.length; i++) {
                 if (lines[i].trim().match(/^EndStructure\b/i)) {
@@ -372,9 +407,31 @@ function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
             }
         }
 
-        // 递归更新子符号
+        // Recursively update sub-symbols
         if (symbol.children && symbol.children.length > 0) {
             updateSymbolRanges(symbol.children, lines);
         }
     }
+}
+
+function sortSymbolsStable(list: DocumentSymbol[]) {
+    list.sort((a, b) => {
+        const la = a.range.start.line - b.range.start.line;
+        if (la !== 0) return la;
+        const ca = a.range.start.character - b.range.start.character;
+        if (ca !== 0) return ca;
+        return a.name.localeCompare(b.name);
+    });
+    for (const s of list) {
+        if (s.children?.length) sortSymbolsStable(s.children);
+    }
+}
+
+/**
+ * Returns a safe index for range calculations.
+ * Falls back to 0 if the substring cannot be found.
+ */
+function safeIndexOf(haystack: string, needle: string): number {
+    const idx = haystack.indexOf(needle);
+    return idx >= 0 ? idx : 0;
 }
