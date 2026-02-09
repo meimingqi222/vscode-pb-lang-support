@@ -33,6 +33,12 @@
     },
     {
       "include": "#compiler-directives"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#labels"
     }
   ],
   "repository": {
@@ -48,12 +54,12 @@
     "constants": {
       "patterns": [
         {
-          "name": "constant.other.purebasic",
-          "match": "\\#[A-Za-z_][A-Za-z0-9_]*\\b"
+          "name": "constant.language.purebasic",
+          "match": "(?i)#(True|False|Null|PB_Any|PB_Default|PI|E)\\b"
         },
         {
-          "name": "constant.language.purebasic",
-          "match": "\\b(#True|#False|#Null|#PB_Any|#PB_Default|#PI|#E)\\b"
+          "name": "constant.other.purebasic",
+          "match": "(?i)#[_a-z]\\w*[$]?"
         }
       ]
     },
@@ -85,7 +91,7 @@
         },
         {
           "name": "keyword.other.compiler.purebasic",
-          "match": "\\b(CompilerIf|CompilerElseIf|CompilerElse|CompilerEndIf|CompilerSelect|CompilerCase|CompilerDefault|CompilerEndSelect|EnableExplicit|DisableExplicit)\\b"
+          "match": "\\b(CompilerIf|CompilerElseIf|CompilerElse|CompilerEndIf|CompilerSelect|CompilerCase|CompilerDefault|CompilerEndSelect|EnableExplicit|DisableExplicit|Debug)\\b"
         }
       ]
     },
@@ -215,12 +221,17 @@
     "functions": {
       "patterns": [
         {
-          "name": "entity.name.function.purebasic",
-          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\("
+          "name": "support.function.purebasic",
+          "match": "\\b(OpenWindow|CreateGadgetList|EventWindow|EventGadget|EventMenu|WaitWindowEvent|WindowEvent|SetActiveWindow|CloseWindow|WindowID|WindowOutput|WindowX|WindowY|WindowWidth|WindowHeight|DesktopWidth|DesktopHeight|DesktopDepth|DesktopFrequency|Delay|CountProgramParameters|ProgramParameter|RunProgram|OpenFile|ReadFile|WriteFile|CloseFile|FileSeek|FileSize|Eof|ReadString|WriteString|ReadCharacter|WriteCharacter|ReadByte|WriteByte|ReadWord|WriteWord|ReadLong|WriteLong|ReadQuad|WriteQuad|ReadFloat|WriteFloat|ReadDouble|WriteDouble|CreateDirectory|DeleteFile|CopyFile|RenameFile|DirectoryEntry|DirectoryEntryType|DirectoryEntryName|DirectoryEntrySize|DirectoryEntryDate|DirectoryEntryAttributes|NextDirectoryEntry|FinishDirectory|ExamineDirectory|SetCurrentDirectory|GetCurrentDirectory|CreateFile|FileBuffers|FileID|FileError|MessageRequester|InputRequester|OpenFileRequester|SaveFileRequester|PathRequester|ColorRequester|FontRequester|DebuggerDisplay|DebuggerLevel|CompilerError|CompilerWarning|CompilerIf|CompilerElse|CompilerEndIf|CompilerError|CompilerWarning|IncludeFile|IncludeBinary|XIncludeFile|EnableExplicit|DisableExplicit|UseModule|UnuseModule|DeclareModule|EndDeclareModule|Module|EndModule|DeclareC|PrototypeC|Import|ImportC|EndImport|EndImportC|DefineMacro|UndefineMacro|Macro|EndMacro)\\s*(?=\\()"
         },
         {
-          "name": "support.function.purebasic",
-          "match": "\\b(OpenWindow|CreateGadgetList|EventWindow|EventGadget|EventMenu|WaitWindowEvent|WindowEvent|SetActiveWindow|CloseWindow|WindowID|WindowOutput|WindowX|WindowY|WindowWidth|WindowHeight|DesktopWidth|DesktopHeight|DesktopDepth|DesktopFrequency|Delay|CountProgramParameters|ProgramParameter|RunProgram|OpenFile|ReadFile|WriteFile|CloseFile|FileSeek|FileSize|Eof|ReadString|WriteString|ReadCharacter|WriteCharacter|ReadByte|WriteByte|ReadWord|WriteWord|ReadLong|WriteLong|ReadQuad|WriteQuad|ReadFloat|WriteFloat|ReadDouble|WriteDouble|CreateDirectory|DeleteFile|CopyFile|RenameFile|DirectoryEntry|DirectoryEntryType|DirectoryEntryName|DirectoryEntrySize|DirectoryEntryDate|DirectoryEntryAttributes|NextDirectoryEntry|FinishDirectory|ExamineDirectory|SetCurrentDirectory|GetCurrentDirectory|CreateFile|FileBuffers|FileID|FileError|MessageRequester|InputRequester|OpenFileRequester|SaveFileRequester|PathRequester|ColorRequester|FontRequester|DebuggerDisplay|DebuggerLevel|CompilerError|CompilerWarning|CompilerIf|CompilerElse|CompilerEndIf|CompilerError|CompilerWarning|IncludeFile|IncludeBinary|XIncludeFile|EnableExplicit|DisableExplicit|UseModule|UnuseModule|DeclareModule|EndDeclareModule|Module|EndModule|DeclareC|PrototypeC|Import|ImportC|EndImport|EndImportC|DefineMacro|UndefineMacro|Macro|EndMacro)\\b"
+          "name": "entity.name.function.call.purebasic",
+          "match": "(?i)\\b([A-Za-z_]\\w*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.purebasic"
+            }
+          }
         }
       ]
     },
@@ -257,6 +268,22 @@
         {
           "name": "meta.preprocessor.purebasic",
           "match": "\\b(DataSection|EndDataSection|Data|Read|Restore)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.purebasic",
+          "match": "(?i)\\b([ilqbfwdsa]|i|l|q|b|f|d|w|s|a)\\b"
+        }
+      ]
+    },
+    "labels": {
+      "patterns": [
+        {
+          "name": "entity.name.label.purebasic",
+          "match": "^\\s*[A-Za-z_]\\w*:"
         }
       ]
     }
