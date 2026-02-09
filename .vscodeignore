@@ -10,5 +10,5 @@ coverage/
 test/
 jest.config.js
 tsconfig.test.json
-out/src/**
-out/test/**
+src/**
+test/**
