@@ -39,6 +39,13 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+      "themes": [
+    {
+      "label": "PureBasic (Constants Highlight)",
+      "uiTheme": "vs-dark",
+      "path": "./themes/purebasic-constants-color-theme.json"
+    }
+    ],
     "configuration": {
       "title": "PureBasic",
       "properties": {
