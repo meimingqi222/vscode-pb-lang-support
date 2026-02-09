@@ -1,13 +1,13 @@
 /**
- * 控制结构验证器
- * 验证PureBasic控制结构的匹配性
+ * Control Structure Validator
+ * Verifies the matching of PureBasic control structures
  */
 
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 import { ValidationContext, ValidatorFunction } from './types';
 
 /**
- * 验证控制结构的匹配
+ * Verify matching of control structures (If-EndIf, For-Next, While-Wend, Repeat-Until/ForEver, Select-EndSelect, With-EndWith).
  */
 export const validateControlStructures: ValidatorFunction = (
     line: string,
@@ -16,7 +16,7 @@ export const validateControlStructures: ValidatorFunction = (
     context: ValidationContext,
     diagnostics
 ) => {
-    // If-EndIf 结构 - 支持单行 If : ... : EndIf（允许任意空格/注释）
+    // If-EndIf Structure - Supports single-line If: ... : EndIf (allows arbitrary whitespace/comments)
     if (/^If\b/.test(line) && !/^IfElse\b/.test(line)) {
         const hasInlineEnd = /\bEndIf\b/.test(line);
         if (!hasInlineEnd) {
