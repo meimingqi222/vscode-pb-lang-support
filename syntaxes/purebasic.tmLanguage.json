@@ -23,10 +23,10 @@
       "include": "#structures"
     },
     {
-      "include": "#variables"
+      "include": "#functions"
     },
     {
-      "include": "#functions"
+      "include": "#variables"
     },
     {
       "include": "#operators"
@@ -67,7 +67,7 @@
       "patterns": [
         {
           "name": "keyword.control.purebasic",
-          "match": "\\b(If|Else|ElseIf|EndIf|Then|For|Next|Step|To|While|Wend|Repeat|Until|ForEver|Select|Case|Default|EndSelect|Break|Continue|Goto|Gosub|Return|End|Procedure|EndProcedure|Declare|Prototype|Interface|EndInterface|Structure|EndStructure|Enumeration|EndEnumeration|Data|Read|Restore|NewList|AddElement|InsertElement|DeleteElement|ClearList|ListIndex|ResetList|NextElement|PreviousElement|ForEach|With|EndWith|Module|EndModule|DeclareModule|EndDeclareModule|UseModule|UnuseModule|EnableExplicit|DisableExplicit)\\b"
+          "match": "\\b(If|Else|ElseIf|EndIf|Then|For|Next|Step|To|While|Wend|Repeat|Until|ForEver|Select|Case|Default|EndSelect|Break|Continue|Goto|Gosub|Return|End|Procedure|ProcedureReturn|EndProcedure|Declare|Prototype|Interface|EndInterface|Structure|EndStructure|Enumeration|EndEnumeration|Data|Read|Restore|NewList|AddElement|InsertElement|DeleteElement|ClearList|ListIndex|ResetList|NextElement|PreviousElement|ForEach|With|EndWith|Module|EndModule|DeclareModule|EndDeclareModule|UseModule|UnuseModule|EnableExplicit|DisableExplicit)\\b"
         },
         {
           "name": "keyword.operator.logical.purebasic",
