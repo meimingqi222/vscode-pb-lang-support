@@ -1,6 +1,6 @@
 /**
  * PureBasic Language Server
- * 模块化架构的Language Server实现
+ * Language Server implementation with a modular architecture
  */
 
 import {
@@ -29,77 +29,77 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-// 导入配置
+// Import configuration
 import { serverCapabilities } from './config/capabilities';
 import { defaultSettings, globalSettings, PureBasicSettings } from './config/settings';
 
-// 导入验证器
+// Import validator
 import { validateDocument } from './validation/validator';
 
-// 导入代码补全提供者
+// Import code completion provider
 import { handleCompletion, handleCompletionResolve } from './providers/completion-provider';
 
-// 导入定义和引用提供者
+// Import definition and reference providers
 import { handleDefinition } from './providers/definition-provider';
 import { handleReferences } from './providers/reference-provider';
 
-// 导入签名帮助提供者
+// Import signature help provider
 import { handleSignatureHelp } from './providers/signature-provider';
 
-// 导入悬停和文档符号提供者
+// Import hover and document symbol providers
 import { handleHover } from './providers/hover-provider';
 import { handleDocumentSymbol } from './providers/document-symbol-provider';
 
-// 导入重命名提供者
+// Import rename providers
 import { handlePrepareRename, handleRename } from './providers/rename-provider';
 
-// 导入格式化提供者
+// Import formatting providers
 import { handleDocumentFormatting, handleDocumentRangeFormatting } from './providers/formatting-provider';
 
-// 导入符号管理
+// Import symbol management
 import { parseDocumentSymbols } from './symbols/symbol-manager';
 import { setWorkspaceRoots } from './indexer/workspace-index';
 import { symbolCache } from './symbols/symbol-cache';
 import { SymbolInformation, SymbolKind as LSPSymbolKind, WorkspaceSymbolParams } from 'vscode-languageserver/node';
 import { SymbolKind as PBSymbolKind, PureBasicSymbol } from './symbols/types';
 
-// 导入工具函数
+// Import utility functions
 import { debounce } from './utils/debounce-utils';
 import { generateHash } from './utils/hash-utils';
 
-// 导入错误处理
+// Import error handling
 import { initializeErrorHandler } from './utils/error-handler';
 
-// 导入项目管理器
+// Import project manager
 import { ProjectManager } from './managers/project-manager';
 
-// 创建连接
+// Create connection
 const connection = createConnection(ProposedFeatures.all);
 
-// 初始化错误处理器
+// Initialize error handler
 const errorHandler = initializeErrorHandler(connection);
 
-// 创建文档管理器
+// Create document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
-// 文档设置缓存
+// Document settings cache
 const documentSettings: Map<string, Thenable<PureBasicSettings>> = new Map();
 const documentHashes: Map<string, string> = new Map();
 
-// 文档缓存，用于定义跳转和引用查找
+// Document cache for defining jumps and reference lookups
 const documentCache: Map<string, TextDocument> = new Map();
 
-// 项目管理器，用于处理.pbp项目文件
+// Project manager for handling .pbp project files
 let projectManager: ProjectManager;
 
 connection.onInitialize((params: InitializeParams) => {
     const capabilities = params.capabilities;
 
-    // 检查客户端能力
+    // Check client capabilities
     hasConfigurationCapability = !!(
         capabilities.workspace && !!capabilities.workspace.configuration
     );
@@ -112,7 +112,7 @@ connection.onInitialize((params: InitializeParams) => {
         capabilities.textDocument.publishDiagnostics.relatedInformation
     );
 
-    // 初始化项目管理器
+    // Initialize the Project Manager
     projectManager = new ProjectManager(connection);
 
     const result: InitializeResult = {
@@ -132,7 +132,7 @@ connection.onInitialize((params: InitializeParams) => {
 
 connection.onInitialized(async () => {
     if (hasConfigurationCapability) {
-        // 注册配置变更
+        // Registration Configuration Change Notification
         connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
     if (hasWorkspaceFolderCapability) {
@@ -143,7 +143,7 @@ connection.onInitialized(async () => {
                 setWorkspaceRoots(uris);
             } catch {}
         });
-        // 初始化工作区根
+        // Initialize workspace root
         connection.workspace.getWorkspaceFolders().then(folders => {
             const uris = (folders || []).map(f => f.uri);
             setWorkspaceRoots(uris);
@@ -151,7 +151,7 @@ connection.onInitialized(async () => {
     }
 });
 
-// 自定义请求：清空符号缓存（与客户端命令 purebasic.clearSymbolCache 配合）
+// Custom Request: Clear Symbol Cache (to be used with the client command `purebasic.clearSymbolCache`)
 connection.onRequest('purebasic/clearSymbolCache', () => {
     try {
         symbolCache.clearAll();
@@ -163,10 +163,10 @@ connection.onRequest('purebasic/clearSymbolCache', () => {
     }
 });
 
-// 配置变更处理
+// Configuration Change Management
 connection.onDidChangeConfiguration(change => {
     if (hasConfigurationCapability) {
-        // 清除缓存的文档设置
+        // Clear cached document settings
         documentSettings.clear();
     } else {
         globalSettings.maxNumberOfProblems = (change.settings.purebasic || defaultSettings).maxNumberOfProblems;
@@ -175,7 +175,7 @@ connection.onDidChangeConfiguration(change => {
         globalSettings.validationDelay = (change.settings.purebasic || defaultSettings).validationDelay;
     }
 
-    // 重新验证所有打开的文档
+    // Re-validate all open documents
     documents.all().forEach(safeValidateTextDocument);
 });
 
@@ -190,7 +190,7 @@ function getDocumentSettings(resource: string): Thenable<PureBasicSettings> {
             scopeUri: resource,
             section: 'purebasic'
         }).then(config => {
-            // 确保返回完整的设置对象，使用默认值填补缺失的属性
+            // Ensure a complete settings object is returned, filling missing properties with defaults
             return {
                 maxNumberOfProblems: config?.maxNumberOfProblems ?? defaultSettings.maxNumberOfProblems,
                 enableValidation: config?.enableValidation ?? defaultSettings.enableValidation,
@@ -207,29 +207,29 @@ function getDocumentSettings(resource: string): Thenable<PureBasicSettings> {
     return result;
 }
 
-// 文档变更处理
+// Document change handling
 documents.onDidClose(e => {
     documentSettings.delete(e.document.uri);
     documentHashes.delete(e.document.uri);
     documentCache.delete(e.document.uri);
-    // 通知项目管理器
+    // Notify project manager
     projectManager.onDocumentClose(e.document);
 });
 
 documents.onDidOpen(e => {
     documentCache.set(e.document.uri, e.document);
-    // 通知项目管理器
+    // Notify project manager
     projectManager.onDocumentOpen(e.document);
 });
 
 documents.onDidChangeContent(change => {
     documentCache.set(change.document.uri, change.document);
-    // 通知项目管理器
+    // Notify project manager
     projectManager.onDocumentChange(change.document);
     debouncedValidateTextDocument(change.document);
 });
 
-// 防抖验证函数
+// Debounced validation function
 const debouncedValidateTextDocument = debounce((textDocument: TextDocument) => {
     safeValidateTextDocument(textDocument);
 }, 500);
@@ -242,7 +242,7 @@ const safeValidateTextDocument = (textDocument: TextDocument): Promise<void> => 
         return;
     }
 
-    // 跳过.pbp项目文件的语法验证（它们是XML格式，不是PureBasic代码）
+    // Skip syntax validation for .pbp project files (they are XML, not PureBasic code)
     if (textDocument.uri.endsWith('.pbp')) {
         return;
     }
@@ -251,30 +251,30 @@ const safeValidateTextDocument = (textDocument: TextDocument): Promise<void> => 
     const newHash = generateHash(text);
     const oldHash = documentHashes.get(textDocument.uri);
 
-    // 如果内容没有变化，跳过验证
+    // Skip validation if content hasn't changed
     if (oldHash === newHash) {
         return;
     }
 
     documentHashes.set(textDocument.uri, newHash);
 
-    // 解析符号
+    // Parse symbols
     parseDocumentSymbols(textDocument.uri, text);
 
-    // 验证文档
+    // Validate document
     let diagnostics = validateDocument(text);
 
-    // 限制诊断数量
+    // Limit number of diagnostics
     if (diagnostics.length > settings.maxNumberOfProblems) {
         diagnostics = diagnostics.slice(0, settings.maxNumberOfProblems);
     }
 
-    // 发送诊断
+    // Send diagnostics
     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
     });
 };
 
-// 代码补全处理
+// Completion handling
 connection.onCompletion(async (params: TextDocumentPositionParams): Promise<CompletionItem[] | null> => {
     return errorHandler.handleAsync('completion-handler', async () => {
         const document = documents.get(params.textDocument.uri);
@@ -296,7 +296,7 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     return handleCompletionResolve(item);
 });
 
-// 文档符号处理
+// Document symbol handling
 connection.onDocumentSymbol((params: DocumentSymbolParams) => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -311,7 +311,7 @@ connection.onDocumentSymbol((params: DocumentSymbolParams) => {
     }
 });
 
-// 悬停信息处理
+// Hover handling
 connection.onHover((params: HoverParams): Hover | null => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -326,7 +326,7 @@ connection.onHover((params: HoverParams): Hover | null => {
     }
 });
 
-// 定义跳转处理
+// Definition handling
 connection.onDefinition((params: DefinitionParams): Location[] => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -341,7 +341,7 @@ connection.onDefinition((params: DefinitionParams): Location[] => {
     }
 });
 
-// 查找引用处理
+// References handling
 connection.onReferences((params: ReferenceParams): Location[] => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -356,18 +356,18 @@ connection.onReferences((params: ReferenceParams): Location[] => {
     }
 });
 
-// 文档高亮处理
+// Document highlight handling
 connection.onDocumentHighlight((params: TextDocumentPositionParams) => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
         return [];
     }
 
-    // 返回空数组作为基础实现，避免错误
+    // Return empty array as a basic implementation to avoid errors
     return [];
 });
 
-// 工作区符号处理（基于符号缓存的快速搜索）
+// Workspace symbol handling (fast search based on symbol cache)
 connection.onWorkspaceSymbol((params: WorkspaceSymbolParams): SymbolInformation[] => {
     const query = (params.query || '').trim();
     if (!query) return [];
@@ -399,9 +399,9 @@ function mapSymbolKind(kind: PBSymbolKind): LSPSymbolKind {
     }
 }
 
-// findUriForSymbol 不再需要，使用 symbolCache.findSymbolDetailed 提供的URI
+// findUriForSymbol is no longer needed; use the URI provided by symbolCache.findSymbolDetailed
 
-// 签名帮助处理
+// Signature help handling
 connection.onSignatureHelp((params: TextDocumentPositionParams) => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -416,7 +416,7 @@ connection.onSignatureHelp((params: TextDocumentPositionParams) => {
     }
 });
 
-// 重命名准备处理
+// Prepare rename handling
 connection.onPrepareRename((params: PrepareRenameParams) => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -431,7 +431,7 @@ connection.onPrepareRename((params: PrepareRenameParams) => {
     }
 });
 
-// 重命名处理
+// Rename handling
 connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -446,7 +446,7 @@ connection.onRenameRequest((params: RenameParams): WorkspaceEdit | null => {
     }
 });
 
-// 文档格式化处理
+// Document formatting handling
 connection.onDocumentFormatting((params: DocumentFormattingParams): TextEdit[] => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -461,7 +461,7 @@ connection.onDocumentFormatting((params: DocumentFormattingParams): TextEdit[] =
     }
 });
 
-// 范围格式化处理
+// Range formatting handling
 connection.onDocumentRangeFormatting((params: DocumentRangeFormattingParams): TextEdit[] => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -476,10 +476,10 @@ connection.onDocumentRangeFormatting((params: DocumentRangeFormattingParams): Te
     }
 });
 
-// 诊断相关处理已集成在validateTextDocument函数中
+// Diagnostic-related handling is integrated in the validateTextDocument function
 
-// 使documents监听连接
+// Start documents listening on the connection
 documents.listen(connection);
 
-// 监听连接
+// Listen on the connection
 connection.listen();
