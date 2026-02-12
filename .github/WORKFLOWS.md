@@ -1,70 +1,84 @@
-# GitHub Actions 工作流
+# GitHub Actions Workflows
 
-本仓库配置了自动化CI/CD流程，用于构建和发布VSCode插件。
+This repository is configured with automated CI/CD workflows for building and publishing VSCode extensions.
 
-## 工作流说明
+## Workflow Descriptions
 
 ### 1. Build VSCode Extension (`.github/workflows/build-extension.yml`)
-**触发条件**：
-- 推送到 `main` 或 `master` 分支
-- 创建/更新 Pull Request
-- 创建版本标签 (`v*`)
 
-**执行任务**：
-- 在Node.js 20.x环境下构建
-- 安装依赖
-- 编译TypeScript
-- 构建插件
-- 打包插件 (.vsix文件)
-- 上传构建产物
+**Trigger Conditions**:
+
+- Push to `main` or `master` branch
+- Create/Update Pull Request
+- Create version tag (`v*`)
+
+**Tasks**:
+
+- Build under Node.js 20.x environment
+- Install dependencies (`npm install -g @vscode/vsce`)
+- Compile TypeScript (`npm run compile`)
+- Build extension (`npx @vscode/vsce package`)
+- Package extension (.vsix file)
+- Upload build artifacts
 
 ### 2. Publish to VSCode Marketplace (`.github/workflows/publish-extension.yml`)
-**触发条件**：
-- 手动触发 (workflow_dispatch)
 
-**功能**：
-- 更新版本号
-- 转换图标为PNG格式
-- 构建和打包插件
-- 发布到VSCode插件市场
-- 创建Git标签
+**Trigger Conditions**:
+
+- Manual trigger (workflow_dispatch)
+
+**Features**:
+
+- Update version number
+- Convert icon to PNG format
+- Build and package extension
+- Publish to VSCode Marketplace
+- Create Git tag
 
 ### 3. PR Check (`.github/workflows/pr-check.yml`)
-**触发条件**：
-- 创建/更新 Pull Request
 
-**检查项目**：
-- TypeScript类型检查
-- 代码质量检查
-- 构建测试
-- 自动评论PR状态
+**Trigger Conditions**:
 
-## 使用指南
+- Create/Update Pull Request
 
-### 自动构建
-插件会在每次push时自动构建，构建产物会保存30天。
+**Check Items**:
 
-### 发布新版本
-1. 访问仓库的Actions页面
-2. 选择 "Publish to VSCode Marketplace" 工作流
-3. 点击 "Run workflow"
-4. 输入版本号 (如: 0.0.2)
-5. 选择是否为预发布版本
-6. 点击 "Run workflow"
+- TypeScript type check
+- Code quality check
+- Build testing
+- Automated PR status comment
 
-### 必要的Secrets
-在仓库设置中配置以下secrets：
+## Usage Guide
+
+### Automatic Build
+
+The extension will automatically build on every push, and build artifacts will be retained for 30 days.
+
+### Publish New Version
+
+1. Visit the repository's Actions page
+2. Select "Publish to VSCode Marketplace" workflow
+3. Click "Run workflow"
+4. Enter version number (e.g.: 0.0.2)
+5. Select whether it is a pre-release version
+6. Click "Run workflow"
+
+### Required Secrets
+
+Configure the following secrets in the repository settings:
 
 - `VSCE_PAT`: VSCode Marketplace Personal Access Token
-  - 获取方式: https://dev.azure.com/
+  - How to obtain: https://dev.azure.com/
 
-## 发布流程
-1. 代码合并到main分支后自动构建
-2. 手动触发发布工作流
-3. 插件自动发布到VSCode市场
-4. 自动创建Git标签和Release
+## Publishing Process
 
-## 注意事项
-- 确保package.json中的版本信息正确
-- 发布前在本地测试功能
-- 预发布版本可以先用pre-release模式测试
+1. Automatically build after code is merged to main branch
+2. Manually trigger publish workflow
+3. Extension automatically published to VSCode Marketplace
+4. Automatically create Git tag and Release
+
+## Important Notes
+
+- Ensure that the version information in package.json is correct
+- Test functionality locally before publishing
+- Pre-release versions can be tested in pre-release mode first

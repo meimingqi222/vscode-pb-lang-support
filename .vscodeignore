@@ -1,7 +1,7 @@
-node_modules/
+node_modules/**
 .vscode-test/
 *.vsix
-src/
+src/**
 .gitignore
 tsconfig.json
 *.ts
@@ -12,3 +12,7 @@ jest.config.js
 tsconfig.test.json
 src/**
 test/**
+.vscode/**
+.github/**
+webpack.config.js
+**/*.map
