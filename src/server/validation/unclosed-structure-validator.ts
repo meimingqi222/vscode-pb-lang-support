@@ -1,14 +1,14 @@
 /**
- * 未闭合结构验证器
- * 在文档验证结束时检查未闭合的结构
+ * Unclosed Structure Validator
+ * Check unclosed structures at the end of document validation
  */
 
 import { DiagnosticSeverity, Diagnostic } from 'vscode-languageserver/node';
 import { ValidationContext } from './types';
 
 /**
- * 验证未闭合的结构
- * 暂时禁用，因为在复杂的PureBasic代码上产生太多误报
+ * Validate unclosed structures
+ * Temporarily disabled because it produces too many false positives on complex PureBasic code
  */
 export function validateUnclosedStructures(
     context: ValidationContext,
@@ -29,12 +29,12 @@ export function validateUnclosedStructures(
         });
     };
 
-    // 程序块
+    // Procedure blocks
     for (const proc of context.procedureStack) {
         addDiag(proc.line, `Unclosed Procedure '${proc.name}'. Missing EndProcedure.`);
     }
 
-    // 模块
+    // Modules
     for (const mod of context.moduleStack) {
         addDiag(mod.line, `Unclosed Module '${mod.name}'. Missing EndModule.`);
     }
@@ -44,7 +44,7 @@ export function validateUnclosedStructures(
         addDiag(mod.line, `Unclosed DeclareModule '${mod.name}'. Missing EndDeclareModule.`);
     }
 
-    // 结构体
+    // Structures
     for (const s of context.structureStack) {
         addDiag(s.line, `Unclosed Structure '${s.name}'. Missing EndStructure.`);
     }
@@ -54,7 +54,7 @@ export function validateUnclosedStructures(
         addDiag(line, 'Unclosed Interface. Missing EndInterface.');
     }
 
-    // 控制结构
+    // Control structures
     for (const line of context.ifStack) {
         addDiag(line, 'Unclosed If. Missing EndIf.');
     }

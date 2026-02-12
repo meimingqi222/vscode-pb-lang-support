@@ -1,6 +1,6 @@
 /**
- * 主验证器
- * 整合所有验证模块，提供统一的验证接口
+ * Main Validator
+ * Integrates all validation modules, provides a unified validation interface
  */
 
 import { Diagnostic } from 'vscode-languageserver/node';
@@ -15,7 +15,7 @@ import { validateUnclosedStructures } from './unclosed-structure-validator';
 import { withErrorHandling, getErrorHandler } from '../utils/error-handler';
 
 /**
- * 创建新的验证上下文
+ * Create a new validation context
  */
 export function createValidationContext(): ValidationContext {
     return {
@@ -34,7 +34,7 @@ export function createValidationContext(): ValidationContext {
 }
 
 /**
- * 验证PureBasic代码
+ * Validate PureBasic code
  */
 export function validateDocument(text: string): Diagnostic[] {
     try {
@@ -54,12 +54,12 @@ function validateDocumentInternal(text: string): Diagnostic[] {
         const originalLine = lines[i];
         const line = originalLine.trim();
 
-        // 跳过空行和注释
+        // Skip empty lines and comments
         if (line === '' || line.startsWith(';')) {
             continue;
         }
 
-        // 应用所有验证器
+        // Apply all validators
         validateProcedure(line, i, originalLine, context, diagnostics);
         validateVariables(line, i, originalLine, context, diagnostics);
         validateControlStructures(line, i, originalLine, context, diagnostics);
@@ -68,7 +68,7 @@ function validateDocumentInternal(text: string): Diagnostic[] {
         validateGeneric(line, i, originalLine, context, diagnostics);
     }
 
-    // 检查未闭合的结构
+    // Check unclosed structures
     validateUnclosedStructures(context, lines, diagnostics);
 
     return diagnostics;

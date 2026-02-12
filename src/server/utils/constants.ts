@@ -1,6 +1,6 @@
 /**
- * PureBasic语言常量定义
- * 包含关键字、内置类型、内置函数等
+ * PureBasic language constants definition
+ * Contains keywords, built-in types, built-in functions, etc.
  */
 
 export const keywords = [
@@ -40,13 +40,13 @@ export const builtInFunctions = [
     'PathRequester', 'ColorRequester', 'FontRequester'
 ];
 
-// 数组函数
+// Array functions
 export const arrayFunctions = [
     'ArraySize', 'FreeArray', 'ClearArray', 'CopyArray', 'ResizeArray',
     'SortArray', 'SortStructuredArray', 'RandomizeArray'
 ];
 
-// 链表函数
+// List functions
 export const listFunctions = [
     'NewList', 'AddElement', 'InsertElement', 'DeleteElement', 'ClearList',
     'ListIndex', 'ListSize', 'ResetList', 'NextElement', 'PreviousElement',
@@ -55,14 +55,14 @@ export const listFunctions = [
     'PushListPosition', 'PopListPosition', 'CopyList', 'FreeList'
 ];
 
-// Map函数
+// Map functions
 export const mapFunctions = [
     'NewMap', 'DeleteMapElement', 'ClearMap', 'CopyMap', 'FreeMap',
     'MapSize', 'AddMapElement', 'FindMapElement', 'NextMapElement',
     'PreviousMapElement', 'ResetMap'
 ];
 
-// Windows API函数
+// Windows API functions
 export const windowsApiFunctions = [
     'MessageBox_', 'GetWindowText_', 'SetWindowText_', 'FindWindow_',
     'GetDesktopWindow_', 'GetForegroundWindow_', 'SetForegroundWindow_',
@@ -73,7 +73,7 @@ export const windowsApiFunctions = [
     'RegOpenKeyEx_', 'RegQueryValueEx_', 'RegSetValueEx_', 'RegCloseKey_'
 ];
 
-// 图形和游戏相关函数
+// Graphics and game-related functions
 export const graphicsFunctions = [
     'InitSprite', 'LoadSprite', 'FreeSprite', 'SpriteWidth', 'SpriteHeight',
     'DisplaySprite', 'DisplayTransparentSprite', 'RotateSprite', 'ZoomSprite',
@@ -85,7 +85,7 @@ export const graphicsFunctions = [
     'SoundVolume', 'SetSoundFrequency', 'GetSoundPosition', 'SetSoundPosition'
 ];
 
-// 网络函数
+// Network functions
 export const networkFunctions = [
     'InitNetwork', 'CreateNetworkServer', 'CreateNetworkClient', 'CloseNetworkServer',
     'CloseNetworkClient', 'NetworkServerEvent', 'NetworkClientEvent',
@@ -93,7 +93,7 @@ export const networkFunctions = [
     'IPString', 'HostIP', 'GetClientIP'
 ];
 
-// 数据库函数
+// Database functions
 export const databaseFunctions = [
     'OpenDatabase', 'CloseDatabase', 'DatabaseQuery', 'NextDatabaseRow',
     'GetDatabaseString', 'GetDatabaseLong', 'GetDatabaseFloat', 'GetDatabaseDouble',
@@ -101,14 +101,14 @@ export const databaseFunctions = [
     'DatabaseUpdate', 'DatabaseColumnName', 'DatabaseColumns'
 ];
 
-// 线程函数
+// Thread functions
 export const threadFunctions = [
     'CreateThread', 'WaitThread', 'KillThread', 'ThreadID', 'IsThread',
     'CreateMutex', 'LockMutex', 'UnlockMutex', 'FreeMutex',
     'CreateSemaphore', 'SignalSemaphore', 'WaitSemaphore', 'FreeSemaphore'
 ];
 
-// 所有内置函数的合并列表
+// Merged list of all built-in functions
 export const allBuiltInFunctions = [
     ...builtInFunctions,
     ...arrayFunctions,
@@ -121,7 +121,7 @@ export const allBuiltInFunctions = [
     ...threadFunctions
 ];
 
-// 常见的无参数内置函数（用于决定补全是否插入()且不触发参数提示）
+// Common zero-parameter built-in functions (used to determine whether completion should insert () and not trigger parameter hints)
 export const zeroParamBuiltInFunctions = [
     'EventWindow',
     'EventGadget',
@@ -131,7 +131,7 @@ export const zeroParamBuiltInFunctions = [
     'GetCurrentDirectory'
 ];
 
-// PureBasic类型后缀
+// PureBasic type suffixes
 export const typeSuffixes = [
     'i',    // Integer
     'l',    // Long
@@ -147,23 +147,23 @@ export const typeSuffixes = [
 ];
 
 /**
- * 检查是否为有效的PureBasic类型
+ * Check if a valid PureBasic type
  */
 export function isValidType(type: string): boolean {
     const lowerType = type.toLowerCase();
 
-    // 检查基本类型
+    // Check basic types
     if (types.some(t => t.toLowerCase() === lowerType)) {
         return true;
     }
 
-    // 检查类型后缀（如.i, .s等）
+    // Check type suffixes (such as .i, .s, etc.)
     if (typeSuffixes.includes(lowerType)) {
         return true;
     }
 
-    // 检查自定义类型模式（字母或下划线开头，包含字母数字和下划线）
-    // 支持: MyType, _PrivateType, CONSTANT_TYPE, camelCase, snake_case等
+    // Check custom type pattern (start with letters or underscores, contain letters, numbers, and underscores)
+    // Support: MyType, _PrivateType, CONSTANT_TYPE, camelCase, snake_case, etc.
     if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(type)) {
         return true;
     }

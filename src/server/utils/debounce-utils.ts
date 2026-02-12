@@ -1,10 +1,10 @@
 /**
- * 防抖工具函数
- * 用于延迟执行频繁触发的操作
+ * Debounce utility function
+ * Used to delay the execution of frequently triggered operations
  */
 
 /**
- * 防抖函数
+ * Debounce function
  */
 export function debounce<T extends (...args: any[]) => void>(
     func: T,
