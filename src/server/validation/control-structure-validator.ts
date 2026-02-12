@@ -64,12 +64,12 @@ export const validateControlStructures: ValidatorFunction = (
     const validateStatement = (stmt: string) => {
         const s = stmt.trimStart();
         // If-EndIf Structure - Supports single-line If: ... : EndIf (allows arbitrary whitespace/comments)
-        if (/^If\b/.test(s) && !/^IfElse\b/.test(s)) {
-            const hasInlineEnd = /\bEndIf\b/.test(s);
+        if (/^If\b/i.test(s) && !/^IfElse\b/i.test(s)) {
+            const hasInlineEnd = /\bEndIf\b/i.test(s);
             if (!hasInlineEnd) {
                 context.ifStack.push(lineNum);
             }
-        } else if (/^EndIf\b/.test(s)) {
+        } else if (/^EndIf\b/i.test(s)) {
             if (context.ifStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -86,13 +86,13 @@ export const validateControlStructures: ValidatorFunction = (
         }
 
         //For-Next Structure (including ForEach)
-        else if (s.startsWith('For ') || s.startsWith('ForEach ')) {
+        else if (/^For\b/i.test(s) || /^ForEach\b/i.test(s)) {
             // Single-line For...: Next
-            const hasInlineEnd = /\bNext\b/.test(s);
+            const hasInlineEnd = /\bNext\b/i.test(s);
             if (!hasInlineEnd) {
                 context.forStack.push(lineNum);
             }
-        } else if (/^Next\b/.test(s)) {
+        } else if (/^Next\b/i.test(s)) {
             if (context.forStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -109,13 +109,13 @@ export const validateControlStructures: ValidatorFunction = (
         }
 
         // While-Wend Structure
-        else if (s.startsWith('While ')) {
+        else if (/^While\b/i.test(s)) {
             // Single-line While ... : Wend
-            const hasInlineEnd = /\bWend\b/.test(s);
+            const hasInlineEnd = /\bWend\b/i.test(s);
             if (!hasInlineEnd) {
                 context.whileStack.push(lineNum);
             }
-        } else if (/^Wend\b/.test(s)) {
+        } else if (/^Wend\b/i.test(s)) {
             if (context.whileStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -132,14 +132,14 @@ export const validateControlStructures: ValidatorFunction = (
         }
 
         // Repeat-Until / Repeat-Forever Structures
-        else if (/^Repeat\b/.test(s)) {
+        else if (/^Repeat\b/i.test(s)) {
             // Supports multiple statements per line: Repeat : ... : Until/ForEver
             // If a closing keyword appears on the same line, it is not pushed onto the stack (net zero effect)
-            const hasInlineClose = /\bForEver\b/.test(s) || /\bUntil\b/.test(s);
+            const hasInlineClose = /\bForEver\b/i.test(s) || /\bUntil\b/i.test(s);
             if (!hasInlineClose) {
                 context.repeatStack.push(lineNum);
             }
-        } else if (s.startsWith('ForEver')) {
+        } else if (/^ForEver\b/i.test(s)) {
             // ForEver as a closure of Repeat
             if (context.repeatStack.length === 0) {
                 diagnostics.push({
@@ -154,7 +154,7 @@ export const validateControlStructures: ValidatorFunction = (
             } else {
                 context.repeatStack.pop();
             }
-        } else if (s.startsWith('Until')) { // 'Until condition' 或 'Until'
+        } else if (/^Until\b/i.test(s)) { // 'Until condition' or 'Until'
             if (context.repeatStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -171,13 +171,13 @@ export const validateControlStructures: ValidatorFunction = (
         }
 
         // Select-EndSelect structure
-        else if (s.startsWith('Select ')) {
+        else if (/^Select\b/i.test(s)) {
             // Single-line Select ... : EndSelect (extremely rare, still compatible)
-            const hasInlineEnd = /\bEndSelect\b/.test(s);
+            const hasInlineEnd = /\bEndSelect\b/i.test(s);
             if (!hasInlineEnd) {
                 context.selectStack.push(lineNum);
             }
-        } else if (/^EndSelect\b/.test(s)) {
+        } else if (/^EndSelect\b/i.test(s)) {
             if (context.selectStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -194,13 +194,13 @@ export const validateControlStructures: ValidatorFunction = (
         }
 
         // With-EndWith structure
-        else if (s.startsWith('With ')) {
+        else if (/^With\b/i.test(s)) {
             //Single-line With ... : EndWith (Compatibility)
-            const hasInlineEnd = /\bEndWith\b/.test(s);
+            const hasInlineEnd = /\bEndWith\b/i.test(s);
             if (!hasInlineEnd) {
                 context.withStack.push(lineNum);
             }
-        } else if (/^EndWith\b/.test(s)) {
+        } else if (/^EndWith\b/i.test(s)) {
             if (context.withStack.length === 0) {
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,

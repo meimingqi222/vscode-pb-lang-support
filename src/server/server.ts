@@ -372,7 +372,7 @@ connection.onWorkspaceSymbol((params: WorkspaceSymbolParams): SymbolInformation[
     const query = (params.query || '').trim();
     if (!query) return [];
     const results = symbolCache.findSymbolDetailed(query);
-    // 去重并限制数量
+    // Remove duplicates and limit the count
     const max = 200;
     const out: SymbolInformation[] = [];
     for (const { uri, symbol: sym } of results) {
