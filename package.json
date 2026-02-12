@@ -1,21 +1,21 @@
 {
-  "name": "vscode-purebasic",
-  "displayName": "PureBasic Enhanced",
+  "name": "vscode-purebasic-language-support",
+  "displayName": "PureBasic Language",
   "description": "PureBasic language support for Visual Studio Code with syntax highlighting, language server, and development tools",
   "version": "0.0.4",
-  "publisher": "meimingqi222",
+  "publisher": "CalDymos",
   "author": {
-    "name": "meimingqi222"
+    "name": "CalDymos"
   },
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/meimingqi222/vscode-pb-lang-support.git"
+    "url": "https://github.com/CalDymos/vscode-pb-lang-support.git"
   },
   "bugs": {
-    "url": "https://github.com/meimingqi222/vscode-pb-lang-support/issues"
+    "url": "https://github.com/CalDymos/vscode-pb-lang-support/issues"
   },
-  "homepage": "https://github.com/meimingqi222/vscode-pb-lang-support#readme",
+  "homepage": "https://github.com/CalDymos/vscode-pb-lang-support#readme",
   "license": "MIT",
   "keywords": [
     "purebasic",
