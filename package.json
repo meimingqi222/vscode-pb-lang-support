@@ -246,8 +246,8 @@
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/purebasic.svg",
-          "dark": "./icons/purebasic.svg"
+          "light": "./icons/purebasic.png",
+          "dark": "./icons/purebasic.png"
         }
       }
     ],
