@@ -1,0 +1,18 @@
+; Form Designer for PureBasic - 6.12
+; Warning: this file uses a strict syntax, if you edit it, make sure to respect the Form Designer limitation or it won't be opened again.
+
+Enumeration FormWindow
+  #Window_0
+EndEnumeration
+
+Enumeration FormGadget
+  #Button_0
+EndEnumeration
+
+OpenWindow(#Window_0, 0, 0, 480, 320, "Sample", #PB_Window_SystemMenu)
+
+; #PB_Any style (should patch by variable name)
+Button_Any = ButtonGadget(#PB_Any, 20, 20, 120, 28, "OK")
+
+; Normal id style (should patch by first param)
+ButtonGadget(#Button_0, 20, 60, 120, 28, "OK2")

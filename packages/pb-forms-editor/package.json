@@ -1,0 +1,46 @@
+{
+  "name": "pb-forms-editor-mvp",
+  "displayName": "PureBasic Forms Editor (MVP)",
+  "description": "MVP Custom Editor for PureBasic .pbf forms with a webview designer.",
+  "version": "0.3.0",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:purebasic.formDesigner"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "purebasic.formDesigner",
+        "displayName": "PureBasic Form Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.pbf"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "purebasic.formDesigner.openAsText",
+        "title": "Open Form as Text"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p ."
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
+  }
+}

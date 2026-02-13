@@ -1,16 +1,50 @@
 {
-	"version": "0.0.3",
-	"configurations": [
-		
-		{
-			"name": "Run Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extensions"
-			]
-		}
-	]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run pb-lang-support",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/pb-lang-support",
+        "--disable-extensions",
+        "--user-data-dir=${workspaceFolder}/.vscode/.vscode-test"
+      ],
+      "outFiles": ["${workspaceFolder}/packages/pb-lang-support/out/**/*.js"],
+      "preLaunchTask": "compile pb-lang-support",
+      "cwd": "${workspaceFolder}/packages/pb-lang-support"
+    },
+    {
+      "name": "Run pb-forms-editor",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/pb-forms-editor",
+        "--disable-extensions",
+        "--user-data-dir=${workspaceFolder}/.vscode/.vscode-test"
+      ],
+      "outFiles": ["${workspaceFolder}/packages/pb-forms-editor/out/**/*.js"],
+      "preLaunchTask": "compile pb-forms-editor",
+      "cwd": "${workspaceFolder}/packages/pb-forms-editor"
+    },
+    {
+      "name": "Run both (workspace root)",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions",
+        "--user-data-dir=${workspaceFolder}/.vscode/.vscode-test"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/pb-lang-support/out/**/*.js",
+        "${workspaceFolder}/packages/pb-forms-editor/out/**/*.js"
+      ],
+      "preLaunchTask": "compile all",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }
