@@ -9,6 +9,25 @@ import { isValidType } from '../utils/constants';
 import { validateParameters } from './parameter-validator';
 
 /**
+ * Helper function to strip comments from a line, considering string literals
+ * In PureBasic, ';' starts a comment unless it's inside a string literal
+ */
+const stripComment = (srcLine: string): string => {
+    let inString = false;
+    for (let i = 0; i < srcLine.length; i++) {
+        const ch = srcLine[i];
+        if (ch === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (!inString && ch === ';') {
+            return srcLine.substring(0, i);
+        }
+    }
+    return srcLine;
+};
+
+/**
  * Validate procedure related syntax
  */
 export const validateProcedure: ValidatorFunction = (
@@ -38,6 +57,7 @@ export const validateProcedure: ValidatorFunction = (
             });
         } else {
             const [, returnType, procName] = headerMatch;
+            const codeLine = stripComment(line);
             context.procedureStack.push({ name: procName, line: lineNum });
 
             // Validate return type
@@ -55,10 +75,10 @@ export const validateProcedure: ValidatorFunction = (
             }
 
             // Validate parameter syntax: support nested parentheses such as "()" in parameters like List/Array/Map
-            const openIdx = line.indexOf('(');
-            const closeIdx = line.lastIndexOf(')');
+            const openIdx = codeLine.indexOf('(');
+            const closeIdx = codeLine.lastIndexOf(')');
             if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
-                const params = line.substring(openIdx + 1, closeIdx);
+                const params = codeLine.substring(openIdx + 1, closeIdx);
                 if (params.trim().length > 0) {
                     validateParameters(params, lineNum, originalLine, diagnostics);
                 }
