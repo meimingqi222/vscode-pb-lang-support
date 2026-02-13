@@ -1,5 +1,5 @@
 /**
- * 验证相关类型定义
+ * Validation-related type definitions
  */
 
 import { Diagnostic } from 'vscode-languageserver/node';

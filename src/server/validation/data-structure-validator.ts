@@ -1,13 +1,13 @@
 /**
- * 数据结构验证器
- * 验证PureBasic数据结构的语法正确性
+ * Data Structure Validator
+ * Validate the syntax correctness of PureBasic data structures
  */
 
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 import { ValidationContext, ValidatorFunction } from './types';
 
 /**
- * 验证数据结构相关语法
+ * Validate data structure related syntax
  */
 export const validateDataStructures: ValidatorFunction = (
     line: string,
@@ -16,12 +16,12 @@ export const validateDataStructures: ValidatorFunction = (
     context: ValidationContext,
     diagnostics
 ) => {
-    // Structure 验证
+    // Structure validation
     if (line.startsWith('Structure ')) {
-        // 单行 Structure ... : EndStructure -> 不入栈
+        // Single-line Structure ... : EndStructure -> not pushed to stack
         const hasInlineEnd = /\bEndStructure\b/.test(line);
         if (hasInlineEnd) {
-            // 只做语法头校验，不入栈
+            // Only validate the syntax header, not pushed to stack
             const structMatch = line.match(/^Structure\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (!structMatch) {
                 diagnostics.push({
@@ -66,7 +66,7 @@ export const validateDataStructures: ValidatorFunction = (
         }
     }
 
-    // Enumeration 验证
+    // Enumeration validation
     else if (line.startsWith('Enumeration')) {
         const enumMatch = line.match(/^Enumeration(?:\s+([a-zA-Z_][a-zA-Z0-9_]*))?(?:\s+#([a-zA-Z_][a-zA-Z0-9_]*))?(?:\s+Step\s+(\d+))?/);
         if (line.trim() !== 'Enumeration' && !enumMatch) {
@@ -81,10 +81,10 @@ export const validateDataStructures: ValidatorFunction = (
             });
         }
     } else if (line === 'EndEnumeration') {
-        // EndEnumeration 不需要栈跟踪，因为Enumeration可以嵌套
+        // EndEnumeration doesn't need stack tracking because Enumeration can be nested
     }
 
-    // Interface 验证
+    // Interface validation
     else if (line.startsWith('Interface ')) {
         const hasInlineEnd = /\bEndInterface\b/.test(line);
         const intfMatch = line.match(/^Interface\s+([a-zA-Z_][a-zA-Z0-9_]*)/);

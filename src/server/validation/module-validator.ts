@@ -1,13 +1,13 @@
 /**
- * 模块验证器
- * 验证PureBasic模块相关语法
+ * Module Validator
+ * Validate PureBasic module related syntax
  */
 
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 import { ValidationContext, ValidatorFunction } from './types';
 
 /**
- * 验证模块相关语法
+ * Validate module related syntax
  */
 export const validateModules: ValidatorFunction = (
     line: string,
@@ -16,9 +16,9 @@ export const validateModules: ValidatorFunction = (
     context: ValidationContext,
     diagnostics
 ) => {
-    // Module 验证
+    // Module validation
     if (line.startsWith('Module ')) {
-        // 单行 Module ... : EndModule -> 不入栈
+        // Single-line Module ... : EndModule -> not pushed to stack
         const hasInlineEnd = /\bEndModule\b/.test(line);
         const moduleMatch = line.match(/^Module\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!moduleMatch) {
@@ -50,7 +50,7 @@ export const validateModules: ValidatorFunction = (
         }
     }
 
-    // DeclareModule 验证
+    // DeclareModule validation
     else if (line.startsWith('DeclareModule ')) {
         const hasInlineEnd = /\bEndDeclareModule\b/.test(line);
         const declModMatch = line.match(/^DeclareModule\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
@@ -83,7 +83,7 @@ export const validateModules: ValidatorFunction = (
         }
     }
 
-    // UseModule 验证
+    // UseModule validation
     else if (line.startsWith('UseModule ')) {
         const useModMatch = line.match(/^UseModule\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!useModMatch) {
@@ -99,7 +99,7 @@ export const validateModules: ValidatorFunction = (
         }
     }
 
-    // UnuseModule 验证
+    // UnuseModule validation
     else if (line.startsWith('UnuseModule ')) {
         const unuseModMatch = line.match(/^UnuseModule\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!unuseModMatch) {

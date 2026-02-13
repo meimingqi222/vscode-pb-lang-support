@@ -1,6 +1,6 @@
 /**
- * 统一错误处理工具
- * 提供优雅的错误处理和恢复机制
+ * Unified error handling tool
+ * Provide elegant error handling and recovery mechanisms
  */
 
 import { Connection } from 'vscode-languageserver/node';
@@ -37,7 +37,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 处理错误并返回降级结果
+     * Handle errors and return fallback result
      */
     public async handleAsync<T>(
         operation: string,
@@ -65,7 +65,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 同步版本的错误处理
+     * Synchronous version of error handling
      */
     public handleSync<T>(
         operation: string,
@@ -93,7 +93,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 包装函数以自动处理错误
+     * Wrap function to automatically handle errors
      */
     public wrapAsync<T>(
         operation: string,
@@ -104,7 +104,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 包装同步函数以自动处理错误
+     * Wrap synchronous function to automatically handle errors
      */
     public wrapSync<T>(
         operation: string,
@@ -115,14 +115,14 @@ export class ErrorHandler {
     }
 
     /**
-     * 检查功能是否被禁用
+     * Check if feature is disabled
      */
     public isFeatureDisabled(feature: string): boolean {
         return this.disabledFeatures.has(feature);
     }
 
     /**
-     * 重新启用功能
+     * Re-enable feature
      */
     public enableFeature(feature: string): void {
         this.disabledFeatures.delete(feature);
@@ -131,14 +131,14 @@ export class ErrorHandler {
     }
 
     /**
-     * 获取错误统计信息
+     * Get error statistics
      */
     public getErrorStats(): Record<string, number> {
         return Object.fromEntries(this.errorCounts);
     }
 
     /**
-     * 清理错误统计
+     * Clear error statistics
      */
     public clearErrors(): void {
         this.errorCounts.clear();
@@ -155,7 +155,7 @@ export class ErrorHandler {
         const errorCount = (this.errorCounts.get(errorKey) || 0) + 1;
         this.errorCounts.set(errorKey, errorCount);
 
-        // 如果错误过多，禁用该功能
+        // If there are too many errors, disable the feature
         if (errorCount >= this.maxErrorsBeforeDisable) {
             this.disabledFeatures.add(operation);
             this.connection.console.error(
@@ -165,7 +165,7 @@ export class ErrorHandler {
             return;
         }
 
-        // 构建错误消息
+        // Build error message
         const errorMessage = this.formatErrorMessage(error, {
             operation,
             ...context,
@@ -175,12 +175,12 @@ export class ErrorHandler {
             }
         });
 
-        // 记录到控制台
+        // Log to console
         if (options.logToConsole) {
             this.connection.console.error(errorMessage);
         }
 
-        // 显示给用户
+        // Show to user
         if (options.showToUser) {
             this.connection.window.showErrorMessage(
                 `PureBasic Language Server error in ${operation}: ${error.message || error}`
@@ -215,7 +215,7 @@ export class ErrorHandler {
     }
 }
 
-// 创建全局错误处理器实例
+// Create global error handler instance
 let globalErrorHandler: ErrorHandler | null = null;
 
 export function initializeErrorHandler(connection: Connection): ErrorHandler {
@@ -231,7 +231,7 @@ export function getErrorHandler(): ErrorHandler {
 }
 
 /**
- * 装饰器：自动处理函数错误
+ * Decorator: automatically handle function errors
  */
 export function withErrorHandling<T>(
     operation: string,
@@ -254,7 +254,7 @@ export function withErrorHandling<T>(
 }
 
 /**
- * 异步版本的错误处理装饰器
+ * Asynchronous version of error handling decorator
  */
 export function withAsyncErrorHandling<T>(
     operation: string,
