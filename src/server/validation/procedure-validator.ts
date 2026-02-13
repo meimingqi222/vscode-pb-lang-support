@@ -1,6 +1,6 @@
 /**
- * 过程验证器
- * 验证PureBasic过程定义的语法正确性
+ * Procedure Validator
+ * Validate the syntax correctness of PureBasic procedure definitions
  */
 
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
@@ -9,7 +9,26 @@ import { isValidType } from '../utils/constants';
 import { validateParameters } from './parameter-validator';
 
 /**
- * 验证过程相关语法
+ * Helper function to strip comments from a line, considering string literals
+ * In PureBasic, ';' starts a comment unless it's inside a string literal
+ */
+const stripComment = (srcLine: string): string => {
+    let inString = false;
+    for (let i = 0; i < srcLine.length; i++) {
+        const ch = srcLine[i];
+        if (ch === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (!inString && ch === ';') {
+            return srcLine.substring(0, i);
+        }
+    }
+    return srcLine;
+};
+
+/**
+ * Validate procedure related syntax
  */
 export const validateProcedure: ValidatorFunction = (
     line: string,
@@ -19,12 +38,12 @@ export const validateProcedure: ValidatorFunction = (
     diagnostics
 ) => {
     if (/^Procedure(?:C|DLL|CDLL)?\b/i.test(line) && !/^ProcedureReturn\b/i.test(line)) {
-        // 单行 Procedure/ProcedureC/ProcedureDLL/ProcedureCDLL ... : EndProcedure -> 不入栈
+        // Single-line Procedure/ProcedureC/ProcedureDLL/ProcedureCDLL ... : EndProcedure -> not pushed to stack
         const hasInlineEnd = /\bEndProcedure\b/i.test(line);
         if (hasInlineEnd) {
             return;
         }
-        // 验证过程定义语法（支持调用约定；先获取返回类型与过程名）
+        // Validate procedure definition syntax (support calling conventions; get return type and procedure name first)
         const headerMatch = line.match(/^Procedure(?:C|DLL|CDLL)?\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/i);
         if (!headerMatch) {
             diagnostics.push({
@@ -38,9 +57,10 @@ export const validateProcedure: ValidatorFunction = (
             });
         } else {
             const [, returnType, procName] = headerMatch;
+            const codeLine = stripComment(line);
             context.procedureStack.push({ name: procName, line: lineNum });
 
-            // 验证返回类型
+            // Validate return type
             if (returnType && !isValidType(returnType)) {
                 const typeStart = line.indexOf('.' + returnType);
                 diagnostics.push({
@@ -54,18 +74,18 @@ export const validateProcedure: ValidatorFunction = (
                 });
             }
 
-            // 验证参数语法：支持参数中包含如 List/Array/Map 的 "()" 等嵌套括号
-            const openIdx = line.indexOf('(');
-            const closeIdx = line.lastIndexOf(')');
+            // Validate parameter syntax: support nested parentheses such as "()" in parameters like List/Array/Map
+            const openIdx = codeLine.indexOf('(');
+            const closeIdx = codeLine.lastIndexOf(')');
             if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
-                const params = line.substring(openIdx + 1, closeIdx);
+                const params = codeLine.substring(openIdx + 1, closeIdx);
                 if (params.trim().length > 0) {
                     validateParameters(params, lineNum, originalLine, diagnostics);
                 }
             }
         }
     } else if (/^EndProcedure\b/i.test(line)) {
-        // 验证EndProcedure
+        // Validate EndProcedure
         if (context.procedureStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
@@ -80,7 +100,7 @@ export const validateProcedure: ValidatorFunction = (
             context.procedureStack.pop();
         }
     } else if (/^ProcedureReturn\b/i.test(line)) {
-        // 验证ProcedureReturn
+        // Validate ProcedureReturn
         if (context.procedureStack.length === 0) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,

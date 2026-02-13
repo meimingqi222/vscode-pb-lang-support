@@ -1,13 +1,13 @@
 /**
- * 参数验证器
- * 验证PureBasic过程参数的语法正确性
+ * Parameter Validator
+ * Validate the syntax correctness of PureBasic procedure parameters
  */
 
 import { DiagnosticSeverity, Diagnostic } from 'vscode-languageserver/node';
 
 /**
- * 验证参数语法
- * 支持多种PureBasic参数语法格式
+ * Validate parameter syntax
+ * Support multiple PureBasic parameter syntax formats
  */
 export function validateParameters(
     params: string,
@@ -15,7 +15,15 @@ export function validateParameters(
     originalLine: string,
     diagnostics: Diagnostic[]
 ): void {
-    // 按逗号分隔参数，但忽略括号与引号中的逗号
+    // Ignore parameters that are part of a comment (e.g. "Procedure X();(alternative / old commented-out parameters)")
+    // If ';' occurs before the first '(' in the original line, everything after ';' is a comment in PureBasic.
+    const commentIdx = originalLine.indexOf(';');
+    const parenIdx = originalLine.indexOf('(');
+    if (commentIdx !== -1 && parenIdx !== -1 && commentIdx < parenIdx) {
+        return;
+    }
+
+    // Split parameters by comma, but ignore commas in parentheses and quotes
     const paramList: string[] = [];
     let buf = '';
     let paren = 0;
@@ -41,29 +49,25 @@ export function validateParameters(
     if (buf.trim()) paramList.push(buf.trim());
 
     for (const param of paramList) {
-        // 跳过空参数和注释
+        // Skip empty parameters and comments
         if (param.trim() === '' || param.trim().startsWith(';')) {
             continue;
         }
-
-        // 使用宽松的验证策略 - 只检查明显的错误语法
+        // Use relaxed validation strategy - only check obvious syntax errors
         let isValid = true;
-
-        // 基本的PureBasic参数模式检查
-        // 有效的参数应该以字母、下划线、星号或List/Array/Map关键字开头
+        // Basic PureBasic parameter pattern check
+        // Valid parameters should start with letters, underscores, asterisks, or List/Array/Map keywords
         if (!/^(?:[a-zA-Z_]|List\s|Array\s|Map\s|\*)/.test(param)) {
             isValid = false;
         }
-
-        // 检查是否有明显的语法错误
-        // 1. 连续的点号
+        // Check for obvious syntax errors
+        // 1. Consecutive dots
         if (/\.\./.test(param)) {
             isValid = false;
         }
-
-        // 2. 括号校验：
-        //    - List/Map 需要空括号 ()
-        //    - Array 允许括号中包含维度，如 (10) 或 (10,20)
+        // 2. Parenthesis validation:
+        //    - List/Map require empty parentheses ()
+        //    - Array allows dimensions in parentheses, e.g., (10) or (10,20)
         if (/^List\s+/i.test(param) || /^Map\s+/i.test(param)) {
             if (!/\(\s*\)/.test(param)) {
                 isValid = false;
@@ -73,14 +77,14 @@ export function validateParameters(
                 isValid = false;
             }
         }
-
-        // 3. 其他明显错误的字符模式（对默认值部分放宽：允许 - + $ # % @ & ）
+        // 3. Other obvious erroneous character patterns (relaxed for default values: allows - + $ # % @ & )
         if (/[^a-zA-Z0-9_\s\.\*:=\(\),;"'\-\+\$#%@&]/.test(param)) {
             isValid = false;
         }
 
         if (!isValid) {
-            const paramStart = originalLine.indexOf(param);
+            let paramStart = originalLine.indexOf(param);
+            if (paramStart < 0) paramStart = 0;
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
                 range: {
