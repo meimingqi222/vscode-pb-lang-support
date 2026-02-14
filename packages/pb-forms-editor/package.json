@@ -32,7 +32,74 @@
         "command": "purebasic.formDesigner.openAsText",
         "title": "Open Form as Text"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "PureBasic Forms Designer",
+      "properties": {
+        "purebasicFormsDesigner.showGrid": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a grid in the designer canvas."
+        },
+        "purebasicFormsDesigner.gridMode": {
+          "type": "string",
+          "enum": ["dots", "lines"],
+          "default": "dots",
+          "description": "Grid rendering mode."
+        },
+        "purebasicFormsDesigner.gridSize": {
+          "type": "number",
+          "default": 10,
+          "minimum": 2,
+          "maximum": 100,
+          "description": "Grid cell size in pixels."
+        },
+        "purebasicFormsDesigner.gridOpacity": {
+          "type": "number",
+          "default": 0.14,
+          "minimum": 0.02,
+          "maximum": 0.5,
+          "description": "Grid opacity (inside window)."
+        },
+        "purebasicFormsDesigner.snapToGrid": {
+          "type": "boolean",
+          "default": false,
+          "description": "Snap gadget positions to the grid while dragging."
+        },
+        "purebasicFormsDesigner.windowFillOpacity": {
+          "type": "number",
+          "default": 0.05,
+          "minimum": 0,
+          "maximum": 0.25,
+          "description": "Window background fill opacity inside the designer."
+        },
+        "purebasicFormsDesigner.canvasBackground": {
+          "type": "string",
+          "default": "",
+          "description": "Optional CSS color for the designer background. Empty = use theme editor background."
+        },
+        "purebasicFormsDesigner.snapMode": {
+          "type": "string",
+          "enum": ["live", "drop"],
+          "default": "drop",
+          "description": "Snapping behavior: live while dragging, or only on mouse release."
+        },
+        "purebasicFormsDesigner.outsideDimOpacity": {
+          "type": "number",
+          "default": 0.12,
+          "minimum": 0,
+          "maximum": 0.35,
+          "description": "Dim opacity for the area outside the form window."
+        },
+        "purebasicFormsDesigner.titleBarHeight": {
+          "type": "number",
+          "default": 26,
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Title bar height drawn at the top of the form window (0 disables)."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p .",
