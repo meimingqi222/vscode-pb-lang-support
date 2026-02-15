@@ -82,7 +82,7 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
   private getWebviewHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview", "main.js")
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "main.js")
     );
     const nonce = getNonce();
 

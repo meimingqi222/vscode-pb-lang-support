@@ -13,7 +13,7 @@
   "activationEvents": [
     "onCustomEditor:purebasic.formDesigner"
   ],
-  "main": "./dist/extension.js",
+  "main": "./out/extension.js",
   "contributes": {
     "customEditors": [
       {
@@ -30,9 +30,55 @@
     "commands": [
       {
         "command": "purebasic.formDesigner.openAsText",
-        "title": "Open Form as Text"
+        "title": "%command.openAsText%",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "purebasic.formDesigner.openInDesigner",
+        "title": "%command.openInDesigner%",
+        "icon": "$(layout)"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "purebasic.formDesigner.openAsText",
+          "when": "resourceExtname == .pbf",
+          "group": "navigation@50"
+        },
+        {
+          "command": "purebasic.formDesigner.openInDesigner",
+          "when": "resourceExtname == .pbf",
+          "group": "navigation@51"
+        }
+      ],
+
+      "editor/context": [
+        {
+          "command": "purebasic.formDesigner.openAsText",
+          "when": "resourceExtname == .pbf && activeCustomEditorId == 'purebasic.formDesigner'",
+          "group": "navigation@50"
+        },
+        {
+          "command": "purebasic.formDesigner.openInDesigner",
+          "when": "resourceExtname == .pbf && activeCustomEditorId != 'purebasic.formDesigner'",
+          "group": "navigation@51"
+        }
+      ],
+
+      "editor/title": [
+        {
+          "command": "purebasic.formDesigner.openAsText",
+          "when": "resourceExtname == .pbf && activeCustomEditorId == 'purebasic.formDesigner'",
+          "group": "navigation@50"
+        },
+        {
+          "command": "purebasic.formDesigner.openInDesigner",
+          "when": "resourceExtname == .pbf && activeCustomEditorId != 'purebasic.formDesigner'",
+          "group": "navigation@51"
+        }
+      ]
+    },
     "configuration": {
       "title": "PureBasic Forms Designer",
       "properties": {
