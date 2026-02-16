@@ -1,0 +1,44 @@
+name: Build VSIX (for Marketplace Upload)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [ pb-lang-support, pb-forms-editor ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm -w packages/${{ matrix.pkg }} run compile
+
+      - if: matrix.pkg == 'pb-lang-support'
+        run: npm -w packages/${{ matrix.pkg }} run webpack:prod
+
+      - name: Package VSIX
+        run: |
+          if [ "${{ matrix.pkg }}" = "pb-forms-editor" ]; then
+            npx @vscode/vsce package --no-dependencies --out ${{ matrix.pkg }}.vsix
+          else
+            npx @vscode/vsce package --out ${{ matrix.pkg }}.vsix
+          fi
+        working-directory: packages/${{ matrix.pkg }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.pkg }}
+          path: packages/${{ matrix.pkg }}/${{ matrix.pkg }}.vsix
