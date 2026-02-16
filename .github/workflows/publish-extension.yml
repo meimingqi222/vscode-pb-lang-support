@@ -1,74 +1,73 @@
-name: Publish to VSCode Marketplace
+name: Publish VS Code Extension (Monorepo)
 
 on:
   workflow_dispatch:
     inputs:
+      package:
+        description: "Which package to publish"
+        required: true
+        type: choice
+        options:
+          - pb-lang-support
+          - pb-forms-editor
       version:
-        description: 'Version to publish (e.g., 0.0.2)'
+        description: "Version to publish (e.g. 0.3.1)"
         required: true
         type: string
-      pre-release:
-        description: 'Publish as pre-release'
+      preRelease:
+        description: "Publish as pre-release"
         required: false
         type: boolean
         default: false
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Update package.json version
-      run: |
-        npm version ${{ github.event.inputs.version }} --no-git-tag-version
-    
-    - name: Convert icon to PNG
-      run: |
-        npm install sharp
-        node -e "
-        const sharp = require('sharp');
-        sharp('icon.svg')
-          .resize(128, 128)
-          .png()
-          .toFile('icon.png')
-          .then(() => console.log('Icon converted'))
-          .catch(err => console.error('Error converting icon:', err));
-        "
-    
-    - name: Build extension
-      run: |
-        npm run webpack:prod
-        npx vsce package
-    
-    - name: Publish to VSCode Marketplace
-      env:
-        VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      run: npx vsce publish --pre-release ${{ github.event.inputs.pre-release }}
-    
-    - name: Create Git Tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a v${{ github.event.inputs.version }} -m "Release v${{ github.event.inputs.version }}"
-        git push origin v${{ github.event.inputs.version }}
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: published-extension
-        path: ./*.vsix
-        retention-days: 90
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies (workspaces)
+        run: npm ci
+
+      - name: Set version (package.json)
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+        working-directory: packages/${{ inputs.package }}
+
+      - name: Compile
+        run: npm run compile
+        working-directory: packages/${{ inputs.package }}
+
+      - name: Build bundle (pb-lang-support only)
+        if: inputs.package == 'pb-lang-support'
+        run: npm run webpack:prod
+        working-directory: packages/${{ inputs.package }}
+
+      - name: Publish to VS Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ "${{ inputs.preRelease }}" = "true" ]; then
+            npx @vscode/vsce publish --pre-release -p "$VSCE_PAT"
+          else
+            npx @vscode/vsce publish -p "$VSCE_PAT"
+          fi
+        working-directory: packages/${{ inputs.package }}
+
+      - name: Create tag
+        run: |
+          TAG="${{ inputs.package }}-v${{ inputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"

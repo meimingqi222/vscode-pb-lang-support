@@ -1,69 +1,123 @@
-name: PR Check
+name: PR Check (Monorepo)
 
 on:
   pull_request:
-    branches: [ main, master ]
-    types: [opened, synchronize, reopened]
+    branches: [ main ]
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
-  quality-check:
+  build:
+    name: Build ${{ matrix.pkg }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    
+
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [ pb-lang-support, pb-forms-editor ]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Type Check
-      run: npx tsc --noEmit
-    
-    - name: Lint Check
-      run: |
-        npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin
-        npx eslint src --ext .ts || echo "Linting issues found but continuing..."
-    
-    - name: Build Test
-      run: |
-        npm run compile
-        npm run webpack:prod
-        npx vsce package --no-deps
-    
-    - name: Comment PR Status
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const { context, github } = require('@actions/github');
-          
-          const comment = `
-          ✅ **Build Status**: All checks passed!
-          
-          📋 **Checklist**:
-          - [x] TypeScript compilation successful
-          - [x] Extension packaging successful
-          - [x] No critical errors found
-          
-          🚀 **Next Steps**:
-          - Review code changes
-          - Test functionality locally
-          - Merge when ready
-          `;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
-      if: always()
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies (workspaces)
+        run: npm ci
+
+      - name: Compile
+        run: npm -w packages/${{ matrix.pkg }} run compile
+
+      - name: Build bundle (pb-lang-support only)
+        if: matrix.pkg == 'pb-lang-support'
+        run: npm -w packages/${{ matrix.pkg }} run webpack:prod
+
+      - name: Run tests (pb-lang-support only)
+        if: matrix.pkg == 'pb-lang-support'
+        run: npm -w packages/${{ matrix.pkg }} run test
+
+      - name: Package VSIX (smoke test)
+        run: npx @vscode/vsce package --out ${{ matrix.pkg }}.vsix
+        working-directory: packages/${{ matrix.pkg }}
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-vsix-${{ matrix.pkg }}
+          path: packages/${{ matrix.pkg }}/${{ matrix.pkg }}.vsix
+
+
+  pr-summary:
+    name: PR Summary Comment
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+    permissions:
+      issues: write
+
+    steps:
+      - name: Post or Update PR Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+
+            const marker = "<!-- pb-suite-ci-status -->";
+
+            const success = "${{ needs.build.result }}" === "success";
+
+            const body =
+              `${marker}
+              ### 🧪 PureBasic VSCode Suite – CI Status
+
+              **Overall Result:** ${success ? "✅ Success" : "❌ Failed"}
+
+              #### Packages
+              - pb-lang-support
+              - pb-forms-editor
+
+              #### Checks Performed
+              - TypeScript compilation
+              - Bundle build (lang-support)
+              - Test run (lang-support)
+              - VSIX packaging smoke-test
+
+              ${success
+                ? "All checks passed successfully. The extensions are buildable and package correctly."
+                : "One or more checks failed. Please review the workflow logs."}
+
+              📦 VSIX artifacts are available in the workflow run summary.
+              `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body
+              });
+            }
