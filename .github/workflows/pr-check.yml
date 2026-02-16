@@ -44,7 +44,7 @@ jobs:
 
       - name: Package VSIX (pb-lang-support)
         if: matrix.pkg == 'pb-lang-support'
-        run: npx @vscode/vsce package --out ${{ matrix.pkg }}.vsix
+        run: npx @vscode/vsce package --no-dependencies --out ${{ matrix.pkg }}.vsix
         working-directory: packages/${{ matrix.pkg }}
 
       - name: Package VSIX (pb-forms-editor)
