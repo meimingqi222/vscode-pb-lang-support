@@ -1,11 +1,13 @@
 import * as vscode from "vscode";
 import { parseFormDocument } from "./core/parser/formParser";
-import { applyMovePatch } from "./core/emitter/patchEmitter";
+import { applyMovePatch, applyRectPatch, applyWindowRectPatch } from "./core/emitter/patchEmitter";
 import { readDesignerSettings, SETTINGS_SECTION, DesignerSettings } from "./settings";
 
 type WebviewToExtensionMessage =
   | { type: "ready" }
-  | { type: "moveGadget"; id: string; x: number; y: number };
+  | { type: "moveGadget"; id: string; x: number; y: number }
+  | { type: "setGadgetRect"; id: string; x: number; y: number; w: number; h: number }
+  | { type: "setWindowRect"; id: string; x: number; y: number; w: number; h: number };
 
 type ExtensionToWebviewMessage =
   | { type: "init"; model: any; settings: DesignerSettings }
@@ -46,13 +48,13 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
     sendInit();
 
-    const cfgSub = vscode.workspace.onDidChangeConfiguration(e => {
+    const cfgSub = vscode.workspace.onDidChangeConfiguration((e: any) => {
       if (e.affectsConfiguration(SETTINGS_SECTION)) {
         post({ type: "settings", settings: readDesignerSettings() });
       }
     });
 
-    const docSub = vscode.workspace.onDidChangeTextDocument((e) => {
+    const docSub = vscode.workspace.onDidChangeTextDocument((e: any) => {
       if (e.document.uri.toString() === document.uri.toString()) {
         sendInit();
       }
@@ -77,12 +79,31 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
         }
         await vscode.workspace.applyEdit(edit);
       }
+
+
+      if (msg.type === "setGadgetRect") {
+        const edit = applyRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h);
+        if (!edit) {
+          post({ type: "error", message: `Could not patch gadget ${msg.id}.` });
+          return;
+        }
+        await vscode.workspace.applyEdit(edit);
+      }
+
+      if (msg.type === "setWindowRect") {
+        const edit = applyWindowRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h);
+        if (!edit) {
+          post({ type: "error", message: `Could not patch window ${msg.id}.` });
+          return;
+        }
+        await vscode.workspace.applyEdit(edit);
+      }
     });
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "main.js")
+      vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview", "main.js")
     );
     const nonce = getNonce();
 
@@ -185,7 +206,7 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
       <div class="canvasWrap"><canvas id="designer"></canvas></div>
       <div class="panel">
         <div><b>Properties</b></div>
-        <div class="muted">Drag gadgets. This MVP patches x/y only.</div>
+        <div class="muted">Drag/resize gadgets. This MVP patches x/y/w/h.</div>
         <div id="props"></div>
 
         <div class="list">
