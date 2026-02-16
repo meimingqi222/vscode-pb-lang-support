@@ -299,5 +299,17 @@
     "webpack-cli": "^6.0.1"
   },
   "extensionPack": [],
-  "extensionDependencies": []
+  "extensionDependencies": [],
+  "files": [
+  "out/**",
+  "icons/**",
+  "snippets/**",
+  "syntaxes/**",
+  "themes/**",
+  "language-configuration.json",
+  "readme.md",
+  "LICENSE",
+  "icon.png"
+]
+
 }
