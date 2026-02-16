@@ -4,6 +4,7 @@
   "workspaces": [
     "packages/*"
   ],
+  "version": "0.1.0",
   "scripts": {
     "compile:lang": "npm -w packages/pb-lang-support run compile",
     "compile:forms": "npm -w packages/pb-forms-editor run compile",
