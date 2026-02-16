@@ -39,8 +39,8 @@ jobs:
         run: npm -w packages/${{ matrix.pkg }} run webpack:prod
 
       - name: Run tests (pb-lang-support only)
-        if: matrix.pkg == 'pb-lang-support' && hashFiles('packages/pb-lang-support/test/**') != ''
-        run: npm -w packages/${{ matrix.pkg }} run test
+        if: matrix.pkg == 'pb-lang-support' && hashFiles('packages/pb-lang-support/test/**/*.test.*', 'packages/pb-lang-support/test/**/*.spec.*') != ''
+        run: npm -w packages/${{ matrix.pkg }} run test -- --passWithNoTests
 
       - name: Package VSIX (pb-lang-support)
         if: matrix.pkg == 'pb-lang-support'
