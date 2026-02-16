@@ -1,6 +1,6 @@
 {
-  "name": "pb-forms-editor-mvp",
-  "displayName": "PureBasic Forms Editor (MVP)",
+  "name": "pb-forms-editor",
+  "displayName": "PureBasic Forms Editor",
   "description": "MVP Custom Editor for PureBasic .pbf forms with a webview designer.",
   "version": "0.3.0",
   "publisher": "CalDymos",

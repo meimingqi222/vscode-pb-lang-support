@@ -1,0 +1,68 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compile pb-lang-support",
+            "type": "shell",
+            "command": "npm -w packages/pb-lang-support run compile",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            }
+        },
+        {
+            "label": "compile pb-forms-editor",
+            "type": "shell",
+            "command": "npm -w packages/pb-forms-editor run compile",
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            }
+        },
+        {
+            "label": "compile all",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "compile pb-lang-support",
+                "compile pb-forms-editor"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "pack pb-lang-support",
+            "type": "shell",
+            "command": "npx",
+            "args": [
+                "vsce",
+                "package"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/pb-lang-support"
+            },
+            "group": "build"
+        },
+        {
+            "label": "pack pb-forms-editor",
+            "type": "shell",
+            "command": "npx",
+            "args": [
+                "vsce",
+                "package"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/pb-forms-editor"
+            },
+            "group": "build"
+        }
+    ]
+}
