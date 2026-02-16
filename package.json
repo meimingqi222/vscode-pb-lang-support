@@ -5,9 +5,16 @@
     "packages/*"
   ],
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CalDymos/vscode-pb-lang-support.git"
+  },
   "scripts": {
     "compile:lang": "npm -w packages/pb-lang-support run compile",
     "compile:forms": "npm -w packages/pb-forms-editor run compile",
-    "compile:all": "npm run compile:lang && npm run compile:forms"
+    "compile:all": "npm run compile:lang && npm run compile:forms",
+    "vsix:lang": "npm -w packages/pb-lang-support run compile && npm -w packages/pb-lang-support run webpack:prod && cd packages/pb-lang-support && npx @vscode/vsce package --no-dependencies -o ../../pb-lang-support.vsix",
+    "vsix:forms": "npm -w packages/pb-forms-editor run compile && cd packages/pb-forms-editor && npx @vscode/vsce package --no-dependencies -o ../../pb-forms-editor.vsix",
+    "vsix:all": "npm run vsix:lang && npm run vsix:forms"
   }
 }
