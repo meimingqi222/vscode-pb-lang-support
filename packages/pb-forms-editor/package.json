@@ -3,7 +3,11 @@
   "displayName": "PureBasic Forms Editor (MVP)",
   "description": "MVP Custom Editor for PureBasic .pbf forms with a webview designer.",
   "version": "0.3.0",
-  "publisher": "your-publisher",
+  "publisher": "CalDymos",
+  "author": {
+    "name": "CalDymos"
+  },
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -31,12 +35,12 @@
       {
         "command": "purebasic.formDesigner.openAsText",
         "title": "%command.openAsText%",
-        "icon": "$(file-text)"
+        "icon": "icons/application_view_text.png"
       },
       {
         "command": "purebasic.formDesigner.openInDesigner",
         "title": "%command.openInDesigner%",
-        "icon": "$(layout)"
+        "icon": "icons/application_view_form.png"
       }
     ],
     "menus": {
