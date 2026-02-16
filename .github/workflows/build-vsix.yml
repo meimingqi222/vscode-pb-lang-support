@@ -34,7 +34,7 @@ jobs:
           if [ "${{ matrix.pkg }}" = "pb-forms-editor" ]; then
             npx @vscode/vsce package --no-dependencies --out ${{ matrix.pkg }}.vsix
           else
-            npx @vscode/vsce package --out ${{ matrix.pkg }}.vsix
+            npx @vscode/vsce package --no-dependencies --out ${{ matrix.pkg }}.vsix
           fi
         working-directory: packages/${{ matrix.pkg }}
 

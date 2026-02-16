@@ -16,3 +16,4 @@ test/**
 .github/**
 webpack.config.js
 **/*.map
+packages/**
