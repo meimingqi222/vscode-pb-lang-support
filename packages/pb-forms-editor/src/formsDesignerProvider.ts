@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { parseFormDocument } from "./core/parser/formParser";
 import { applyMovePatch, applyRectPatch, applyWindowRectPatch } from "./core/emitter/patchEmitter";
 import { readDesignerSettings, SETTINGS_SECTION, DesignerSettings } from "./settings";
+import { FormDocument } from "./core/model";
 
 type WebviewToExtensionMessage =
   | { type: "ready" }
@@ -32,13 +33,68 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
     const post = (msg: ExtensionToWebviewMessage) => webviewPanel.webview.postMessage(msg);
 
+    let lastModel: FormDocument | undefined;
+    let initTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function safeParse(text: string): FormDocument {
+      try {
+        return parseFormDocument(text);
+      } catch (e: any) {
+        return {
+          gadgets: [],
+          meta: {
+            scanRange: { start: 0, end: text.length },
+            issues: [{ severity: "error", message: e?.message ?? String(e) }]
+          }
+        };
+      }
+    }
+
+    const scheduleInit = () => {
+      if (initTimer) clearTimeout(initTimer);
+      initTimer = setTimeout(() => sendInit(), 200);
+    };
+
     const sendInit = () => {
       try {
-        const model = parseFormDocument(document.getText());
+        const model = safeParse(document.getText());
+        lastModel = model;
+
+        // Optional: warn if the header PB version differs from the configured expectation.
+        const expectedPbVersion = vscode.workspace
+          .getConfiguration(SETTINGS_SECTION)
+          .get<string>("expectedPbVersion", "")
+          .trim();
+
+        if (expectedPbVersion.length) {
+          const actual = model.meta.header?.version;
+          if (!actual) {
+            model.meta.issues.push({
+              severity: "warning",
+              message: `Expected PureBasic version '${expectedPbVersion}', but the Form Designer header has no version.`
+            });
+          } else if (actual !== expectedPbVersion) {
+            model.meta.issues.push({
+              severity: "warning",
+              message: `Form header version is '${actual}', but 'purebasicFormsDesigner.expectedPbVersion' is set to '${expectedPbVersion}'.`,
+              line: model.meta.header?.line
+            });
+          }
+        }
+
         const settings = readDesignerSettings();
         post({ type: "init", model, settings });
       } catch (e: any) {
-        post({ type: "error", message: e?.message ?? String(e) });
+        // Keep the webview alive with a minimal model and a structured error.
+        const model: FormDocument = {
+          gadgets: [],
+          meta: {
+            scanRange: { start: 0, end: document.getText().length },
+            issues: [{ severity: "error", message: e?.message ?? String(e) }]
+          }
+        };
+        lastModel = model;
+        post({ type: "init", model, settings: readDesignerSettings() });
       }
     };
 
@@ -56,13 +112,14 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
     const docSub = vscode.workspace.onDidChangeTextDocument((e: any) => {
       if (e.document.uri.toString() === document.uri.toString()) {
-        sendInit();
+        scheduleInit();
       }
     });
 
     webviewPanel.onDidDispose(() => {
       cfgSub.dispose();
       docSub.dispose();
+      if (initTimer) clearTimeout(initTimer);
     });
 
     webviewPanel.webview.onDidReceiveMessage(async (msg: WebviewToExtensionMessage) => {
@@ -72,9 +129,14 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
       }
 
       if (msg.type === "moveGadget") {
-        const edit = applyMovePatch(document, msg.id, msg.x, msg.y);
+        const edit = applyMovePatch(document, msg.id, msg.x, msg.y, lastModel?.meta.scanRange);
         if (!edit) {
-          post({ type: "error", message: `Could not patch gadget ${msg.id}.` });
+          const sr = lastModel?.meta.scanRange;
+          const rangeInfo = sr ? ` (scanRange: ${sr.start}-${sr.end})` : "";
+          post({
+            type: "error",
+            message: `Could not patch gadget '${msg.id}'. No matching call found${rangeInfo}.`
+          });
           return;
         }
         await vscode.workspace.applyEdit(edit);
@@ -82,18 +144,28 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
 
       if (msg.type === "setGadgetRect") {
-        const edit = applyRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h);
+        const edit = applyRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h, lastModel?.meta.scanRange);
         if (!edit) {
-          post({ type: "error", message: `Could not patch gadget ${msg.id}.` });
+          const sr = lastModel?.meta.scanRange;
+          const rangeInfo = sr ? ` (scanRange: ${sr.start}-${sr.end})` : "";
+          post({
+            type: "error",
+            message: `Could not patch gadget '${msg.id}'. No matching call found${rangeInfo}.`
+          });
           return;
         }
         await vscode.workspace.applyEdit(edit);
       }
 
       if (msg.type === "setWindowRect") {
-        const edit = applyWindowRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h);
+        const edit = applyWindowRectPatch(document, msg.id, msg.x, msg.y, msg.w, msg.h, lastModel?.meta.scanRange);
         if (!edit) {
-          post({ type: "error", message: `Could not patch window ${msg.id}.` });
+          const sr = lastModel?.meta.scanRange;
+          const rangeInfo = sr ? ` (scanRange: ${sr.start}-${sr.end})` : "";
+          post({
+            type: "error",
+            message: `Could not patch window '${msg.id}'. No matching OpenWindow call found${rangeInfo}.`
+          });
           return;
         }
         await vscode.workspace.applyEdit(edit);
@@ -194,6 +266,23 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
 
       .muted { opacity: .75; font-size: 12px; }
 
+      .diag {
+        margin: 10px 0 8px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-editorWidget-background);
+        color: var(--vscode-editorWidget-foreground);
+      }
+
+      .diag .row { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
+      .diag .sev { width: 18px; text-align: center; }
+      .diag .msg { flex: 1; }
+
+      .sev.warn { color: var(--vscode-notificationsWarningIcon-foreground); }
+      .sev.err { color: var(--vscode-notificationsErrorIcon-foreground); }
+      .sev.info { color: var(--vscode-notificationsInfoIcon-foreground); }
+
       .err {
         color: #b00020;
         font-size: 12px;
@@ -205,8 +294,9 @@ export class PureBasicFormDesignerProvider implements vscode.CustomTextEditorPro
     <div class="root">
       <div class="canvasWrap"><canvas id="designer"></canvas></div>
       <div class="panel">
+        <div id="diag" class="diag" style="display:none"></div>
         <div><b>Properties</b></div>
-        <div class="muted">Drag/resize gadgets. This MVP patches x/y/w/h.</div>
+        <div class="muted">Drag/resize gadgets. This Version patches only x/y/w/h.</div>
         <div id="props"></div>
 
         <div class="list">

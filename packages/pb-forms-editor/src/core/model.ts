@@ -69,7 +69,33 @@ export interface FormWindow {
   flagsExpr?: string;
 }
 
+export type FormIssueSeverity = "error" | "warning" | "info";
+
+export interface FormIssue {
+  severity: FormIssueSeverity;
+  message: string;
+  line?: number;
+}
+
+export interface FormHeaderInfo {
+  version?: string;
+  line: number;
+  hasStrictSyntaxWarning: boolean;
+}
+
+export interface ScanRange {
+  start: number;
+  end: number;
+}
+
+export interface FormMeta {
+  header?: FormHeaderInfo;
+  scanRange: ScanRange;
+  issues: FormIssue[];
+}
+
 export interface FormDocument {
   window?: FormWindow;
   gadgets: Gadget[];
+  meta: FormMeta;
 }

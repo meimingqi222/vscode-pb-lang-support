@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { scanCalls } from "../parser/callScanner";
 import { splitParams } from "../parser/tokenizer";
+import { ScanRange } from "../model";
 
 function stableKey(assignedVar: string | undefined, params: string[]): string | undefined {
   if (params.length < 1) return undefined;
@@ -17,10 +18,11 @@ export function applyMovePatch(
   document: vscode.TextDocument,
   gadgetKey: string,
   x: number,
-  y: number
+  y: number,
+  scanRange?: ScanRange
 ): vscode.WorkspaceEdit | undefined {
   const text = document.getText();
-  const calls = scanCalls(text);
+  const calls = scanCalls(text, scanRange);
 
   const call = calls.find(c => {
     const params = splitParams(c.args);
@@ -57,10 +59,11 @@ export function applyRectPatch(
   x: number,
   y: number,
   w: number,
-  h: number
+  h: number,
+  scanRange?: ScanRange
 ): vscode.WorkspaceEdit | undefined {
   const text = document.getText();
-  const calls = scanCalls(text);
+  const calls = scanCalls(text, scanRange);
 
   const call = calls.find(c => {
     const params = splitParams(c.args);
@@ -99,10 +102,11 @@ export function applyWindowRectPatch(
   x: number,
   y: number,
   w: number,
-  h: number
+  h: number,
+  scanRange?: ScanRange
 ): vscode.WorkspaceEdit | undefined {
   const text = document.getText();
-  const calls = scanCalls(text);
+  const calls = scanCalls(text, scanRange);
 
   const call = calls.find(c => {
     if (c.name !== "OpenWindow") return false;

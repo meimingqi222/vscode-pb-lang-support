@@ -8,6 +8,11 @@ export interface PbCall {
   indent?: string;
 }
 
+export interface ScanCallsOptions {
+  start?: number;
+  end?: number;
+}
+
 function isIdentStart(ch: string): boolean {
   return /[A-Za-z_]/.test(ch);
 }
@@ -16,8 +21,11 @@ function isIdent(ch: string): boolean {
   return /[A-Za-z0-9_]/.test(ch);
 }
 
-export function scanCalls(text: string): PbCall[] {
+export function scanCalls(text: string, opts?: ScanCallsOptions): PbCall[] {
   const calls: PbCall[] = [];
+
+  const startLimit = Math.max(0, opts?.start ?? 0);
+  const endLimit = Math.max(startLimit, opts?.end ?? text.length);
 
   let i = 0;
   let line = 0;
@@ -27,6 +35,8 @@ export function scanCalls(text: string): PbCall[] {
   let inComment = false;
 
   while (i < text.length) {
+    if (i > endLimit) break;
+
     const ch = text[i];
 
     if (ch === "\n") {
@@ -100,13 +110,17 @@ export function scanCalls(text: string): PbCall[] {
               const indent = m?.[1];
               const assignedVar = m?.[2];
 
-              calls.push({
+              const call: PbCall = {
                 name,
                 args: text.slice(argsStart, argsEnd),
                 range: { start, end: fullEnd, line, lineStart },
                 assignedVar,
                 indent
-              });
+              };
+
+              if (call.range.start >= startLimit && call.range.end <= endLimit) {
+                calls.push(call);
+              }
 
               i = fullEnd;
               break;

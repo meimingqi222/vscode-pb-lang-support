@@ -1,8 +1,8 @@
 {
   "name": "pb-forms-editor",
   "displayName": "PureBasic Forms Editor",
-  "description": "MVP Custom Editor for PureBasic .pbf forms with a webview designer.",
-  "version": "0.3.0",
+  "description": "Custom Editor for PureBasic .pbf forms with a webview designer.",
+  "version": "0.5.0",
   "publisher": "CalDymos",
   "author": {
     "name": "CalDymos"
@@ -34,12 +34,12 @@
     "commands": [
       {
         "command": "purebasic.formDesigner.openAsText",
-        "title": "%command.openAsText%",
+        "title": "%purebasicFormsDesigner.command.openAsText%",
         "icon": "icons/application_view_text.png"
       },
       {
         "command": "purebasic.formDesigner.openInDesigner",
-        "title": "%command.openInDesigner%",
+        "title": "%purebasicFormsDesigner.command.openInDesigner%",
         "icon": "icons/application_view_form.png"
       }
     ],
@@ -84,69 +84,74 @@
       ]
     },
     "configuration": {
-      "title": "PureBasic Forms Designer",
+      "title": "%purebasicFormsDesigner.configurationTitle%",
       "properties": {
         "purebasicFormsDesigner.showGrid": {
           "type": "boolean",
           "default": true,
-          "description": "Show a grid in the designer canvas."
+          "description": "%purebasicFormsDesigner.showGrid.description%"
         },
         "purebasicFormsDesigner.gridMode": {
           "type": "string",
           "enum": ["dots", "lines"],
           "default": "dots",
-          "description": "Grid rendering mode."
+          "description": "%purebasicFormsDesigner.gridMode.description%"
         },
         "purebasicFormsDesigner.gridSize": {
           "type": "number",
           "default": 10,
           "minimum": 2,
           "maximum": 100,
-          "description": "Grid cell size in pixels."
+          "description": "%purebasicFormsDesigner.gridSize.description%"
         },
         "purebasicFormsDesigner.gridOpacity": {
           "type": "number",
           "default": 0.14,
           "minimum": 0.02,
           "maximum": 0.5,
-          "description": "Grid opacity (inside window)."
+          "description": "%purebasicFormsDesigner.gridOpacity.description%"
         },
         "purebasicFormsDesigner.snapToGrid": {
           "type": "boolean",
           "default": false,
-          "description": "Snap gadget positions to the grid while dragging."
+          "description": "%purebasicFormsDesigner.snapToGrid.description%"
         },
         "purebasicFormsDesigner.windowFillOpacity": {
           "type": "number",
           "default": 0.05,
           "minimum": 0,
           "maximum": 0.25,
-          "description": "Window background fill opacity inside the designer."
+          "description": "%purebasicFormsDesigner.windowFillOpacity.description%"
         },
         "purebasicFormsDesigner.canvasBackground": {
           "type": "string",
           "default": "",
-          "description": "Optional CSS color for the designer background. Empty = use theme editor background."
+          "description": "%purebasicFormsDesigner.canvasBackground.description%"
         },
         "purebasicFormsDesigner.snapMode": {
           "type": "string",
           "enum": ["live", "drop"],
           "default": "drop",
-          "description": "Snapping behavior: live while dragging, or only on mouse release."
+          "description": "%purebasicFormsDesigner.snapMode.description%"
         },
         "purebasicFormsDesigner.outsideDimOpacity": {
           "type": "number",
           "default": 0.12,
           "minimum": 0,
           "maximum": 0.35,
-          "description": "Dim opacity for the area outside the form window."
+          "description": "%purebasicFormsDesigner.outsideDimOpacity.description%"
         },
         "purebasicFormsDesigner.titleBarHeight": {
           "type": "number",
           "default": 26,
           "minimum": 0,
           "maximum": 60,
-          "description": "Title bar height drawn at the top of the form window (0 disables)."
+          "description": "%purebasicFormsDesigner.titleBarHeight.description%"
+        },
+        "purebasicFormsDesigner.expectedPbVersion": {
+          "type": "string",
+          "default": "",
+          "description": "%purebasicFormsDesigner.expectedPbVersion.description%"
         }
       }
     }

@@ -1,4 +1,17 @@
 {
-  "command.openAsText": "Formular als Text öffnen",
-  "command.openInDesigner": "Im Form Designer öffnen"
+  "purebasicFormsDesigner.command.openAsText": "Formular als Text öffnen",
+  "purebasicFormsDesigner.command.openInDesigner": "Im Form Designer öffnen",
+
+  "purebasicFormsDesigner.configurationTitle": "PureBasic Formular-Designer",
+  "purebasicFormsDesigner.showGrid.description": "Raster im Designer-Canvas anzeigen.",
+  "purebasicFormsDesigner.gridMode.description": "Darstellungsmodus des Rasters.",
+  "purebasicFormsDesigner.gridSize.description": "Rasterzellengröße in Pixeln.",
+  "purebasicFormsDesigner.gridOpacity.description": "Deckkraft des Rasters (innerhalb des Fensters).",
+  "purebasicFormsDesigner.snapToGrid.description": "Gadget-Positionen beim Ziehen am Raster ausrichten.",
+  "purebasicFormsDesigner.windowFillOpacity.description": "Deckkraft der Fenster-Hintergrundfüllung im Designer.",
+  "purebasicFormsDesigner.canvasBackground.description": "Optionale CSS-Farbe für den Designer-Hintergrund. Leer = Editor-Hintergrund des Themes verwenden.",
+  "purebasicFormsDesigner.snapMode.description": "Ausrichtungsverhalten: live während des Ziehens oder erst beim Loslassen der Maus.",
+  "purebasicFormsDesigner.outsideDimOpacity.description": "Abdunklungs-Deckkraft für den Bereich außerhalb des Formularfensters.",
+  "purebasicFormsDesigner.titleBarHeight.description": "Höhe der Titelleiste oben im Formularfenster (0 deaktiviert).",
+  "purebasicFormsDesigner.expectedPbVersion.description": "Optional: Warnung anzeigen, wenn die PureBasic-Version im .pbf-Header von diesem Wert abweicht. Leer deaktiviert die Prüfung."
 }

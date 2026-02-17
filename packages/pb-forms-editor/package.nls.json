@@ -1,4 +1,17 @@
 {
-  "command.openAsText": "Open Form as Text",
-  "command.openInDesigner": "Open in Form Designer"
+  "purebasicFormsDesigner.command.openAsText": "Open Form as Text",
+  "purebasicFormsDesigner.command.openInDesigner": "Open in Form Designer",
+
+  "purebasicFormsDesigner.configurationTitle": "PureBasic Forms Designer",
+  "purebasicFormsDesigner.showGrid.description": "Show a grid in the designer canvas.",
+  "purebasicFormsDesigner.gridMode.description": "Grid rendering mode.",
+  "purebasicFormsDesigner.gridSize.description": "Grid cell size in pixels.",
+  "purebasicFormsDesigner.gridOpacity.description": "Grid opacity (inside window).",
+  "purebasicFormsDesigner.snapToGrid.description": "Snap gadget positions to the grid while dragging.",
+  "purebasicFormsDesigner.windowFillOpacity.description": "Window background fill opacity inside the designer.",
+  "purebasicFormsDesigner.canvasBackground.description": "Optional CSS color for the designer background. Empty = use theme editor background.",
+  "purebasicFormsDesigner.snapMode.description": "Snapping behavior: live while dragging, or only on mouse release.",
+  "purebasicFormsDesigner.outsideDimOpacity.description": "Dim opacity for the area outside the form window.",
+  "purebasicFormsDesigner.titleBarHeight.description": "Title bar height drawn at the top of the form window (0 disables).",
+  "purebasicFormsDesigner.expectedPbVersion.description": "Optional: show a warning when the .pbf header PureBasic version differs from this value. Empty disables the check."
 }

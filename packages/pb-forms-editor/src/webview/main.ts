@@ -20,6 +20,10 @@ type WindowModel = {
 type Model = {
   window?: WindowModel;
   gadgets: Gadget[];
+  meta?: {
+    header?: { version?: string; line: number; hasStrictSyntaxWarning: boolean };
+    issues?: Array<{ severity: "error" | "warning" | "info"; message: string; line?: number }>;
+  };
 };
 
 type GridMode = "dots" | "lines";
@@ -62,6 +66,7 @@ const canvas = document.getElementById("designer") as HTMLCanvasElement;
 const propsEl = document.getElementById("props") as HTMLDivElement;
 const listEl = document.getElementById("list") as HTMLDivElement;
 const errEl = document.getElementById("err") as HTMLDivElement;
+const diagEl = document.getElementById("diag") as HTMLDivElement;
 
 let model: Model = { gadgets: [] };
 
@@ -174,6 +179,7 @@ window.addEventListener("message", (ev: MessageEvent<ExtensionToWebviewMessage>)
     render();
     renderList();
     renderProps();
+    renderDiagnostics();
     return;
   }
 
@@ -186,6 +192,49 @@ window.addEventListener("message", (ev: MessageEvent<ExtensionToWebviewMessage>)
     errEl.textContent = msg.message;
   }
 });
+
+function renderDiagnostics() {
+  const issues = model.meta?.issues ?? [];
+  const header = model.meta?.header;
+
+  if ((!issues || issues.length === 0) && !header?.version) {
+    diagEl.style.display = "none";
+    diagEl.innerHTML = "";
+    return;
+  }
+
+  const rows: string[] = [];
+  if (header?.version) {
+    rows.push(
+      `<div class="row"><div class="sev info">ℹ</div><div class="msg">PureBasic header version: <b>${escapeHtml(
+        header.version
+      )}</b></div></div>`
+    );
+  }
+
+  for (const it of issues) {
+    const sev = it.severity;
+    const icon = sev === "error" ? "⛔" : sev === "warning" ? "⚠" : "ℹ";
+    const line = typeof it.line === "number" ? ` (line ${it.line + 1})` : "";
+    rows.push(
+      `<div class="row"><div class="sev ${sev === "warning" ? "warn" : sev === "error" ? "err" : "info"}">${icon}</div><div class="msg">${escapeHtml(
+        it.message
+      )}${escapeHtml(line)}</div></div>`
+    );
+  }
+
+  diagEl.innerHTML = rows.join("\n");
+  diagEl.style.display = "block";
+}
+
+function escapeHtml(s: string): string {
+  return (s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function getWinRect(): { x: number; y: number; w: number; h: number; title: string; id: string; tbH: number } | null {
   const rect = canvas.getBoundingClientRect();
