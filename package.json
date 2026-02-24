@@ -345,7 +345,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run webpack:prod",
-    "compile": "tsc -p ./",
+    "compile": "node ./node_modules/typescript/bin/tsc -p ./",
     "watch": "tsc -w",
     "webpack": "webpack --mode development",
     "webpack:prod": "webpack --mode production --config webpack.config.js",

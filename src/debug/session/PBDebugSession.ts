@@ -97,7 +97,7 @@ export class PBDebugSession extends DebugSession {
    * Callbacks waiting for a specific PBEvent from PipeA.
    * onMessage delivers matching events here before the switch-case handlers.
    */
-  private pendingResponse = new Map<number, (msg: CommandInfo) => void>();
+  private pendingResponse = new Map<number, Array<(msg: CommandInfo) => void>>();
 
   // Saved across launchRequest / configurationDoneRequest
   private launchArgs:    LaunchRequestArguments | null = null;
@@ -333,9 +333,10 @@ export class PBDebugSession extends DebugSession {
 
   protected disconnectRequest(
     response: DebugProtocol.DisconnectResponse,
-    _args: DebugProtocol.DisconnectArguments,
+    args: DebugProtocol.DisconnectArguments,
   ): void {
-    this.cleanup();
+    const shouldTerminate = args.terminateDebuggee !== false;
+    this.cleanup(shouldTerminate);
     this.sendResponse(response);
   }
 
@@ -660,9 +661,12 @@ export class PBDebugSession extends DebugSession {
 
   private onMessage(msg: CommandInfo): void {
     // Check if there's a pending async response waiting for this command ID
-    const pending = this.pendingResponse.get(msg.command);
+    const pendingQueue = this.pendingResponse.get(msg.command);
+    const pending = pendingQueue?.shift();
     if (pending) {
-      this.pendingResponse.delete(msg.command);
+      if (pendingQueue && pendingQueue.length === 0) {
+        this.pendingResponse.delete(msg.command);
+      }
       pending(msg);
       return;
     }
@@ -837,15 +841,36 @@ export class PBDebugSession extends DebugSession {
    */
   private performHandshake(): Promise<void> {
     return new Promise((resolve) => {
+      const removePending = (eventId: number): void => {
+        const queue = this.pendingResponse.get(eventId);
+        if (!queue || queue.length === 0) {
+          this.pendingResponse.delete(eventId);
+          return;
+        }
+        queue.shift();
+        if (queue.length === 0) {
+          this.pendingResponse.delete(eventId);
+        }
+      };
+
+      const pushPending = (eventId: number, callback: (msg: CommandInfo) => void): void => {
+        const queue = this.pendingResponse.get(eventId);
+        if (queue) {
+          queue.push(callback);
+          return;
+        }
+        this.pendingResponse.set(eventId, [callback]);
+      };
+
       const timer = setTimeout(() => {
-        this.pendingResponse.delete(PBEvent.Init);
-        this.pendingResponse.delete(PBEvent.ExeMode);
+        removePending(PBEvent.Init);
+        removePending(PBEvent.ExeMode);
         this.log('Handshake timeout – proceeding');
         resolve();
       }, 3_000);
 
       // Consume Init: parse the file-path list and validate version
-      this.pendingResponse.set(PBEvent.Init, (msg) => {
+      pushPending(PBEvent.Init, (msg) => {
         this.log(`Init rx: version=${msg.value2} numFiles=${msg.value1}`);
         if (msg.value2 !== 12) {
           this.log(`Warning: protocol version mismatch (expected 12, got ${msg.value2})`);
@@ -854,7 +879,7 @@ export class PBDebugSession extends DebugSession {
       });
 
       // Consume ExeMode: the last message before the program waits for commands
-      this.pendingResponse.set(PBEvent.ExeMode, (msg) => {
+      pushPending(PBEvent.ExeMode, (msg) => {
         clearTimeout(timer);
         this.log(`ExeMode rx: flags=${msg.value1},${msg.value2}`);
         this.isUnicode = (msg.value1 & 1) !== 0;
@@ -863,7 +888,7 @@ export class PBDebugSession extends DebugSession {
         this.log(`String mode: ${this.isUnicode ? 'Unicode' : 'ANSI'}`);
         this.log(`Detected architecture: ${this.is64bit ? '64-bit' : '32-bit'}`);
         // Clean up Init entry in case it hasn't fired yet (shouldn't happen)
-        this.pendingResponse.delete(PBEvent.Init);
+        removePending(PBEvent.Init);
         resolve();
       });
     });
@@ -929,14 +954,30 @@ export class PBDebugSession extends DebugSession {
       }
 
       const timer = setTimeout(() => {
-        this.pendingResponse.delete(expectedEvent);
+        const queue = this.pendingResponse.get(expectedEvent);
+        if (queue && queue.length > 0) {
+          queue.shift();
+          if (queue.length === 0) {
+            this.pendingResponse.delete(expectedEvent);
+          }
+        }
         reject(new Error(`Timeout waiting for PB event ${expectedEvent}`));
       }, timeoutMs);
 
-      this.pendingResponse.set(expectedEvent, (msg) => {
-        clearTimeout(timer);
-        resolve(msg);
-      });
+      const queue = this.pendingResponse.get(expectedEvent);
+      if (queue) {
+        queue.push((msg) => {
+          clearTimeout(timer);
+          resolve(msg);
+        });
+      } else {
+        this.pendingResponse.set(expectedEvent, [
+          (msg) => {
+            clearTimeout(timer);
+            resolve(msg);
+          },
+        ]);
+      }
 
       this.transport.send({
         command,
@@ -1340,22 +1381,27 @@ export class PBDebugSession extends DebugSession {
   // Internal: cleanup & logging
   // -------------------------------------------------------------------------
 
-  private cleanup(): void {
+  private cleanup(terminateDebuggee = true): void {
     if (!this.state.isTerminated()) {
       this.state.transition('terminated');
-      try { this.transport?.send({ command: PBCommand.Kill }); } catch {}
+      if (terminateDebuggee) {
+        try { this.transport?.send({ command: PBCommand.Kill }); } catch {}
+      }
     }
     this.transport?.close();
     this.transport = null;
     this.communicationString = null;
-    try { this.debugProc?.kill(); } catch {}
+    if (terminateDebuggee) {
+      try { this.debugProc?.kill(); } catch {}
+    }
     this.debugProc = null;
   }
 
   private log(msg: string): void {
-    // Always write to stderr for debugging, and also send to VS Code: Debug Console
+    if (!this.trace) {
+      return;
+    }
     process.stderr.write(`[PBDebugSession] ${msg}\n`);
-    // Also send to Debug Console via OutputEvent
     this.sendEvent(new OutputEvent(`[Debug] ${msg}\n`, 'console'));
   }
 }
