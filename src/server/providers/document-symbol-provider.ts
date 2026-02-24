@@ -10,6 +10,7 @@ import {
     Range
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { parsePureBasicConstantDefinition } from '../utils/constants';
 
 /**
  * 处理文档符号请求
@@ -40,7 +41,7 @@ export function handleDocumentSymbol(
         if (moduleMatch) {
             const name = moduleMatch[1];
             const nameStart = Math.max(0, line.indexOf(name));
-            const selectionRange = createRange(i, nameStart, name.length);
+            const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },
                 end: { line: i, character: line.length }
@@ -84,7 +85,7 @@ export function handleDocumentSymbol(
         if (structMatch) {
             const name = structMatch[1];
             const nameStart = Math.max(0, line.indexOf(name));
-            const selectionRange = createRange(i, nameStart, name.length);
+            const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },
                 end: { line: i, character: line.length }
@@ -118,7 +119,7 @@ export function handleDocumentSymbol(
         if (interfaceMatch) {
             const name = interfaceMatch[1];
             const nameStart = Math.max(0, line.indexOf(name));
-            const selectionRange = createRange(i, nameStart, name.length);
+            const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },
                 end: { line: i, character: line.length }
@@ -145,7 +146,7 @@ export function handleDocumentSymbol(
         if (enumMatch) {
             const name = enumMatch[1] || 'Anonymous';
             const nameStart = enumMatch[1] ? Math.max(0, line.indexOf(enumMatch[1])) : 0;
-            const selectionRange = createRange(i, nameStart, (enumMatch[1] || '').length || line.trim().length);
+            const selectionRange = createSafeRange(i, nameStart, (enumMatch[1] || '').length || line.trim().length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },
                 end: { line: i, character: line.length }
@@ -180,18 +181,16 @@ export function handleDocumentSymbol(
             const name = procMatch[2];
             const displayName = returnType ? `${name}() : ${returnType}` : `${name}()`;
             const nameStart = Math.max(0, line.indexOf(name));
-            const selectionRange = createRange(i, nameStart, name.length);
-            const blockRange: Range = {
-                start: { line: i, character: 0 },
-                end: { line: i, character: line.length }
-            };
+            const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
+            const blockRange = createLineRange(i, line.length);
 
             currentProcedure = {
                 name: displayName,
                 kind: SymbolKind.Function,
                 range: blockRange,
                 selectionRange,
-                children: []
+                children: [],
+                detail: 'Procedure'
             };
 
             if (currentModule) {
@@ -214,13 +213,16 @@ export function handleDocumentSymbol(
             const returnType = declareMatch[1];
             const name = declareMatch[2];
             const displayName = returnType ? `${name}() : ${returnType}` : `${name}()`;
-            const range = createRange(i, line.indexOf(name), name.length);
+            const nameStart = Math.max(0, line.indexOf(name));
+            const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
+            const declarationRange = createLineRange(i, line.length);
 
             const declareSymbol: DocumentSymbol = {
                 name: displayName,
                 kind: SymbolKind.Function,
-                range,
-                selectionRange: range
+                range: declarationRange,
+                selectionRange,
+                detail: 'Declare'
             };
 
             if (currentModule) {
@@ -232,16 +234,20 @@ export function handleDocumentSymbol(
         }
 
         // 常量定义
-        const constMatch = trimmedLine.match(/^#(\w+)\s*=/i);
-        if (constMatch) {
-            const name = constMatch[1];
-            const range = createRange(i, line.indexOf('#' + name), name.length + 1);
+        const parsedConstant = parsePureBasicConstantDefinition(trimmedLine);
+        if (parsedConstant) {
+            const name = parsedConstant.name;
+            const start = line.indexOf('#' + name);
+            const nameStart = start >= 0 ? start : Math.max(0, line.indexOf('#'));
+            const selectionRange = createSafeRange(i, nameStart, name.length + 1, line.length);
+            const declarationRange = createLineRange(i, line.length);
 
             const constSymbol: DocumentSymbol = {
                 name: `#${name}`,
                 kind: SymbolKind.Constant,
-                range,
-                selectionRange: range
+                range: declarationRange,
+                selectionRange,
+                detail: 'Constant'
             };
 
             if (currentEnumeration) {
@@ -261,7 +267,7 @@ export function handleDocumentSymbol(
             const name = globalMatch[2];
             const type = globalMatch[3] || 'unknown';
             const displayName = `${name} : ${type}`;
-            const range = createRange(i, line.indexOf(name), name.length);
+            const range = createSafeRange(i, line.indexOf(name), name.length, line.length);
 
             const varSymbol: DocumentSymbol = {
                 name: displayName,
@@ -286,7 +292,7 @@ export function handleDocumentSymbol(
                 const name = memberMatch[1];
                 const type = memberMatch[2] || 'unknown';
                 const displayName = `${name} : ${type}`;
-                const range = createRange(i, line.indexOf(name), name.length);
+                const range = createSafeRange(i, line.indexOf(name), name.length, line.length);
 
                 const memberSymbol: DocumentSymbol = {
                     name: displayName,
@@ -307,7 +313,7 @@ export function handleDocumentSymbol(
                 const name = localVarMatch[2];
                 const type = localVarMatch[3] || 'unknown';
                 const displayName = `${name} : ${type}`;
-                const range = createRange(i, line.indexOf(name), name.length);
+                const range = createSafeRange(i, line.indexOf(name), name.length, line.length);
 
                 const varSymbol: DocumentSymbol = {
                     name: displayName,
@@ -331,10 +337,20 @@ export function handleDocumentSymbol(
 /**
  * 创建范围对象
  */
-function createRange(line: number, startChar: number, length: number): Range {
+function createSafeRange(line: number, startChar: number, length: number, lineLength: number): Range {
+    const safeStart = Math.max(0, Math.min(startChar, lineLength));
+    const safeEnd = Math.max(safeStart, Math.min(safeStart + Math.max(0, length), lineLength));
+
     return {
-        start: { line, character: startChar },
-        end: { line, character: startChar + length }
+        start: { line, character: safeStart },
+        end: { line, character: safeEnd }
+    };
+}
+
+function createLineRange(line: number, lineLength: number): Range {
+    return {
+        start: { line, character: 0 },
+        end: { line, character: Math.max(0, lineLength) }
     };
 }
 
@@ -344,37 +360,26 @@ function createRange(line: number, startChar: number, length: number): Range {
 function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
     for (const symbol of symbols) {
         if (symbol.kind === SymbolKind.Module) {
-            // 查找对应的EndModule
-            const startLine = symbol.range.start.line;
-            for (let i = startLine + 1; i < lines.length; i++) {
-                if (lines[i].trim().match(/^EndModule\b/i)) {
-                    symbol.range.end = { line: i, character: lines[i].length };
-                    break;
-                }
-            }
-        } else if (symbol.kind === SymbolKind.Function) {
-            // 查找对应的EndProcedure
-            const startLine = symbol.range.start.line;
-            for (let i = startLine + 1; i < lines.length; i++) {
-                if (lines[i].trim().match(/^EndProcedure\b/i)) {
-                    symbol.range.end = { line: i, character: lines[i].length };
-                    break;
-                }
-            }
+            updateSymbolEnd(symbol, lines, /^EndModule\b/i);
         } else if (symbol.kind === SymbolKind.Struct) {
-            // 查找对应的EndStructure
-            const startLine = symbol.range.start.line;
-            for (let i = startLine + 1; i < lines.length; i++) {
-                if (lines[i].trim().match(/^EndStructure\b/i)) {
-                    symbol.range.end = { line: i, character: lines[i].length };
-                    break;
-                }
-            }
+            updateSymbolEnd(symbol, lines, /^EndStructure\b/i);
+        } else if (symbol.kind === SymbolKind.Function && symbol.detail !== 'Declare') {
+            updateSymbolEnd(symbol, lines, /^EndProcedure\b/i);
         }
 
         // 递归更新子符号
         if (symbol.children && symbol.children.length > 0) {
             updateSymbolRanges(symbol.children, lines);
+        }
+    }
+}
+
+function updateSymbolEnd(symbol: DocumentSymbol, lines: string[], endPattern: RegExp) {
+    const startLine = symbol.range.start.line;
+    for (let i = startLine + 1; i < lines.length; i++) {
+        if (lines[i].trim().match(endPattern)) {
+            symbol.range.end = { line: i, character: lines[i].length };
+            return;
         }
     }
 }
