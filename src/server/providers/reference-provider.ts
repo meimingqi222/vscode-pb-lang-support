@@ -11,6 +11,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath } from '../utils/fs-utils';
 import { getWorkspaceFiles } from '../indexer/workspace-index';
+import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
  * 处理引用请求
@@ -302,14 +303,14 @@ function findReferencesInDocument(
             }
 
             // 查找常量定义
-            const constMatch = trimmedLine.match(new RegExp(`^#(${word})\\s*=`, 'i'));
-            if (constMatch) {
-                const startChar = line.indexOf('#') + 1;
+            const constMatch = parsePureBasicConstantDefinition(trimmedLine) || parsePureBasicConstantDeclaration(trimmedLine);
+            if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
+                const startChar = line.indexOf('#' + constMatch.name) + 1;
                 references.push({
                     uri: document.uri,
                     range: {
                         start: { line: i, character: startChar },
-                        end: { line: i, character: startChar + word.length }
+                        end: { line: i, character: startChar + constMatch.name.length }
                     }
                 });
             }
@@ -394,13 +395,16 @@ function findModuleSymbolReferences(
     includeDeclaration: boolean
 ): Location[] {
     const refs: Location[] = [];
+    const escapedModuleName = escapeRegExp(moduleName);
+    const escapedIdent = escapeRegExp(ident);
+
     for (const doc of searchDocs.values()) {
         const text = doc.getText();
         const lines = text.split('\n');
         for (let i = 0; i < lines.length; i++) {
             const raw = lines[i];
             // Module::ident 或 Module::#ident
-            const re = new RegExp(`\\b${moduleName}::#?${ident}\\b`, 'g');
+            const re = new RegExp(`\\b${escapedModuleName}::#?${escapedIdent}\\b`, 'g');
             let m: RegExpExecArray | null;
             while ((m = re.exec(raw)) !== null) {
                 // 跳过注释/字符串
@@ -414,12 +418,16 @@ function findModuleSymbolReferences(
             if (!includeDeclaration) continue;
             // 声明区内的定义（DeclareModule / Module）
             const trimmed = raw.trim();
-            // 只要匹配定义行
+            const constMatch = parsePureBasicConstantDefinition(trimmed) || parsePureBasicConstantDeclaration(trimmed);
+            if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
+                const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                refs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } } });
+                continue;
+            }
             const defMatchers = [
-                new RegExp(`^Structure\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Interface\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^#(${ident})\\b`, 'i')
+                new RegExp(`^Structure\\s+(${escapedIdent})\\b`, 'i'),
+                new RegExp(`^Interface\\s+(${escapedIdent})\\b`, 'i'),
+                new RegExp(`^Enumeration\\s+(${escapedIdent})\\b`, 'i')
             ];
             for (const r of defMatchers) {
                 const mm = trimmed.match(r);
@@ -432,6 +440,14 @@ function findModuleSymbolReferences(
         }
     }
     return refs;
+}
+
+function normalizeConstantName(name: string): string {
+    return name.replace(/[.$@]+$/, '').toLowerCase();
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

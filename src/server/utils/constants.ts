@@ -146,6 +146,39 @@ export const typeSuffixes = [
     'u'     // Unicode
 ];
 
+const pureBasicConstantNamePattern = '[a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?';
+const pureBasicConstantDefinitionRegex = new RegExp(`^#(${pureBasicConstantNamePattern})\\s*=\\s*(.*)$`, 'i');
+const pureBasicConstantDeclarationRegex = new RegExp(`^#(${pureBasicConstantNamePattern})(?:\\s*=\\s*(.*))?$`, 'i');
+
+export interface ParsedPureBasicConstant {
+    name: string;
+    value?: string;
+}
+
+export function parsePureBasicConstantDefinition(line: string): ParsedPureBasicConstant | null {
+    const match = line.trim().match(pureBasicConstantDefinitionRegex);
+    if (!match) {
+        return null;
+    }
+
+    return {
+        name: match[1],
+        value: match[2]
+    };
+}
+
+export function parsePureBasicConstantDeclaration(line: string): ParsedPureBasicConstant | null {
+    const match = line.trim().match(pureBasicConstantDeclarationRegex);
+    if (!match) {
+        return null;
+    }
+
+    return {
+        name: match[1],
+        value: match[2]
+    };
+}
+
 /**
  * 检查是否为有效的PureBasic类型
  */

@@ -13,7 +13,7 @@ import {
 import {
     keywords, types, allBuiltInFunctions, arrayFunctions, listFunctions, mapFunctions,
     windowsApiFunctions, graphicsFunctions, networkFunctions, databaseFunctions, threadFunctions,
-    zeroParamBuiltInFunctions
+    zeroParamBuiltInFunctions, parsePureBasicConstantDefinition
 } from '../utils/constants';
 import { getModuleFunctionCompletions as getModuleFunctions, getAvailableModules, getModuleExports } from '../utils/module-resolver';
 import { analyzeScopesAndVariables, getActiveUsedModules } from '../utils/scope-manager';
@@ -581,7 +581,7 @@ function getTriggerContext(linePrefix: string): {
     const moduleConstPrefix = moduleConstMatch ? moduleConstMatch[2] : '';
 
     // 检查是否在常量上下文：#Name...
-    const constMatch = linePrefix.match(/#(\w*)$/);
+    const constMatch = linePrefix.match(/#([a-zA-Z_][a-zA-Z0-9_$.@]*)$/);
     const isConstantContext = !!constMatch && !isAfterModuleOperator; // 非模块的 #
     const constPrefix = constMatch ? constMatch[1] : '';
 
@@ -730,10 +730,10 @@ function analyzeDocumentSymbols(document: any, symbols: any) {
         }
 
         // 查找常量定义
-        const constMatch = line.match(/^#(\w+)\s*=\s*(.+)?/i);
+        const constMatch = parsePureBasicConstantDefinition(line);
         if (constMatch) {
-            const name = constMatch[1];
-            const value = constMatch[2];
+            const name = constMatch.name;
+            const value = constMatch.value;
             symbols.constants.push({ name, value });
         }
 

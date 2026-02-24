@@ -5,7 +5,7 @@
 
 import { DiagnosticSeverity } from 'vscode-languageserver/node';
 import { ValidatorFunction } from './types';
-import { keywords, builtInFunctions } from '../utils/constants';
+import { keywords, builtInFunctions, parsePureBasicConstantDefinition } from '../utils/constants';
 
 /**
  * 验证通用语法规则
@@ -18,8 +18,9 @@ export const validateGeneric: ValidatorFunction = (
     diagnostics
 ) => {
     // 验证常量定义
-    if (line.startsWith('#')) {
-        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)/);
+    // 跳过模块访问的常量（如 Module::#Constant）
+    if (line.startsWith('#') && !line.includes('::')) {
+        const constMatch = parsePureBasicConstantDefinition(line);
         if (line.includes('=') && !constMatch) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
