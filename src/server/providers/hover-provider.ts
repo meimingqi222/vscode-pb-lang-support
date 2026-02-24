@@ -12,6 +12,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { getModuleExports } from '../utils/module-resolver';
+import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
  * 处理悬停请求
@@ -94,7 +95,7 @@ function getModuleExportHover(
     documentCache: Map<string, TextDocument>
 ): Hover | null {
     const ex = getModuleExports(moduleName, document, documentCache);
-    const c = ex.constants.find(x => x.name.toLowerCase() === ident.toLowerCase());
+    const c = ex.constants.find(x => normalizeConstantName(x.name) === normalizeConstantName(ident));
     if (c) {
         const content = '```purebasic\n#' + c.name + (c.value ? ' = ' + c.value : '') + '\n```';
         return { contents: { kind: MarkupKind.Markdown, value: content } };
@@ -105,6 +106,10 @@ function getModuleExportHover(
         return { contents: { kind: MarkupKind.Markdown, value: content } };
     }
     return null;
+}
+
+function normalizeConstantName(name: string): string {
+    return name.replace(/[.$@]+$/, '').toLowerCase();
 }
 
 function getStructAccessFromPosition(line: string, character: number): { varName: string; memberName: string } | null {
@@ -319,15 +324,15 @@ function findSymbolInfo(
             }
 
             // 查找常量定义
-            const constMatch = line.match(new RegExp(`^#(${word})\\s*=\\s*(.+)`, 'i'));
-            if (constMatch) {
-                const value = constMatch[2];
+            const constMatch = parsePureBasicConstantDefinition(line) || parsePureBasicConstantDeclaration(line);
+            if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
+                const value = constMatch.value || '';
 
                 return {
                     type: 'constant',
-                    name: word,
+                    name: constMatch.name,
                     value,
-                    documentation: `Constant with value: ${value}`
+                    documentation: value ? `Constant with value: ${value}` : 'Constant declaration'
                 };
             }
 

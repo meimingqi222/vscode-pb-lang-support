@@ -9,6 +9,7 @@ import { resolveIncludePath, readFileIfExistsSync, normalizeDirPath } from './fs
 import { readFileCached } from './file-cache';
 import { generateHash } from './hash-utils';
 import { withErrorHandling, getErrorHandler } from './error-handler';
+import { parsePureBasicConstantDeclaration } from './constants';
 
 export interface ModuleFunction {
     name: string;
@@ -363,9 +364,9 @@ function extractModuleExports(text: string, moduleName: string): {
                 continue;
             }
 
-            const constMatch = line.match(/^#(\w+)\s*(?:=\s*(.+))?/);
+            const constMatch = parsePureBasicConstantDeclaration(line);
             if (constMatch) {
-                constants.push({ name: constMatch[1], value: constMatch[2] });
+                constants.push({ name: constMatch.name, value: constMatch.value });
                 continue;
             }
 

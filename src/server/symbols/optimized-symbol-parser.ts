@@ -5,6 +5,7 @@
 
 import { PureBasicSymbol, SymbolKind } from './types';
 import { symbolCache } from './symbol-cache';
+import { parsePureBasicConstantDefinition } from '../utils/constants';
 
 export interface ParsedDocument {
     symbols: PureBasicSymbol[];
@@ -334,17 +335,17 @@ export class OptimizedSymbolParser {
             }
 
             // 解析常量定义
-            const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+            const constMatch = parsePureBasicConstantDefinition(line);
             if (constMatch) {
                 symbols.push({
-                    name: constMatch[1],
+                    name: constMatch.name,
                     kind: SymbolKind.Constant,
                     range: {
                         start: { line: i, character: 0 },
                         end: { line: i, character: line.length }
                     },
                     detail: 'Constant',
-                    documentation: `Constant definition: #${constMatch[1]} = ${constMatch[2].trim()}`
+                    documentation: `Constant definition: #${constMatch.name} = ${(constMatch.value || '').trim()}`
                 });
             }
 
