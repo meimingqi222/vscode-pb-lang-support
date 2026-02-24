@@ -47,8 +47,9 @@ A Visual Studio Code extension that provides comprehensive PureBasic language su
 ### Development Version
 1. Clone this repository
 2. Run `npm install` to install dependencies
-3. Run `npm run compile` to compile TypeScript
-4. Press F5 in VSCode to start debugging
+3. Run `npm run compile` to compile TypeScript (for type-check and emitted JS)
+4. Run `npm run webpack` to build extension runtime entry files into `out/`
+5. Press F5 in VSCode to start debugging
 
 ### Release Version
 Search for "PureBasic Language Support" in the VSCode Extension Marketplace and install
@@ -303,6 +304,9 @@ The extension includes a comprehensive test suite:
 
    # Compile TypeScript
    npm run compile
+
+   # Build extension runtime entry files
+   npm run webpack
 
    # Run tests
    npm run test
