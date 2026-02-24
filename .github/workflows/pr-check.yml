@@ -8,6 +8,10 @@ on:
 jobs:
   quality-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     defaults:
       run:
         working-directory: .
@@ -64,4 +68,5 @@ jobs:
             repo: context.repo.repo,
             body: comment
           });
-      if: success()
+      if: success() && github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
