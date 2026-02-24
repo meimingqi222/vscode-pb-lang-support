@@ -8,6 +8,10 @@ on:
 jobs:
   quality-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     defaults:
       run:
         working-directory: .
@@ -38,32 +42,31 @@ jobs:
       run: |
         npm run compile
         npm run webpack:prod
-        npx vsce package --no-deps
+        npx vsce package
     
     - name: Comment PR Status
       uses: actions/github-script@v7
       with:
         script: |
-          const { context, github } = require('@actions/github');
-          
           const comment = `
           ✅ **Build Status**: All checks passed!
-          
+
           📋 **Checklist**:
           - [x] TypeScript compilation successful
           - [x] Extension packaging successful
           - [x] No critical errors found
-          
+
           🚀 **Next Steps**:
           - Review code changes
           - Test functionality locally
           - Merge when ready
           `;
-          
-          github.rest.issues.createComment({
+
+          await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: comment
           });
-      if: always()
+      if: success() && github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
