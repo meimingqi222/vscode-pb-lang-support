@@ -10,7 +10,6 @@ import {
     Range
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { parsePureBasicConstantDefinition } from '../utils/constants';
 
 /**
  * 处理文档符号请求
@@ -234,11 +233,11 @@ export function handleDocumentSymbol(
         }
 
         // 常量定义
-        const parsedConstant = parsePureBasicConstantDefinition(trimmedLine);
-        if (parsedConstant) {
-            const name = parsedConstant.name;
-            const start = line.indexOf('#' + name);
-            const nameStart = start >= 0 ? start : Math.max(0, line.indexOf('#'));
+        const constMatch = trimmedLine.match(/^#([a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?)\s*=/i);
+        if (constMatch) {
+            const name = constMatch[1];
+            const hashStart = line.indexOf('#');
+            const nameStart = hashStart >= 0 ? hashStart : Math.max(0, line.indexOf(name));
             const selectionRange = createSafeRange(i, nameStart, name.length + 1, line.length);
             const declarationRange = createLineRange(i, line.length);
 
@@ -363,6 +362,10 @@ function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
             updateSymbolEnd(symbol, lines, /^EndModule\b/i);
         } else if (symbol.kind === SymbolKind.Struct) {
             updateSymbolEnd(symbol, lines, /^EndStructure\b/i);
+        } else if (symbol.kind === SymbolKind.Interface) {
+            updateSymbolEnd(symbol, lines, /^EndInterface\b/i);
+        } else if (symbol.kind === SymbolKind.Enum) {
+            updateSymbolEnd(symbol, lines, /^EndEnumeration\b/i);
         } else if (symbol.kind === SymbolKind.Function && symbol.detail !== 'Declare') {
             updateSymbolEnd(symbol, lines, /^EndProcedure\b/i);
         }
