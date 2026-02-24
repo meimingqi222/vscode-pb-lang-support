@@ -8,6 +8,7 @@ import { symbolCache } from './symbol-cache';
 import { generateHash } from '../utils/hash-utils';
 import { optimizedSymbolParser } from './optimized-symbol-parser';
 import { ParsedDocument } from './optimized-symbol-parser';
+import { parsePureBasicConstantDefinition } from '../utils/constants';
 
 /**
  * 解析文档中的符号（性能优化版本）
@@ -128,17 +129,17 @@ function parseDocumentSymbolsFallback(uri: string, text: string): void {
         }
 
         // 解析常量定义
-        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+        const constMatch = parsePureBasicConstantDefinition(line);
         if (constMatch) {
             symbols.push({
-                name: constMatch[1],
+                name: constMatch.name,
                 kind: SymbolKind.Constant,
                 range: {
                     start: { line: i, character: 0 },
                     end: { line: i, character: line.length }
                 },
                 detail: 'Constant',
-                documentation: `Constant definition: #${constMatch[1]} = ${constMatch[2].trim()}`
+                documentation: `Constant definition: #${constMatch.name} = ${(constMatch.value || '').trim()}`
             });
         }
 
@@ -250,17 +251,17 @@ function parseSingleSymbol(line: string, lineIndex: number): PureBasicSymbol | n
     }
 
     // 解析常量定义
-    const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]*)/);
+    const constMatch = parsePureBasicConstantDefinition(line);
     if (constMatch) {
         return {
-            name: constMatch[1],
+            name: constMatch.name,
             kind: SymbolKind.Constant,
             range: {
                 start: { line: lineIndex, character: 0 },
                 end: { line: lineIndex, character: line.length }
             },
             detail: 'Constant',
-            documentation: `Constant definition: #${constMatch[1]} = ${constMatch[2].trim()}`
+            documentation: `Constant definition: #${constMatch.name} = ${(constMatch.value || '').trim()}`
         };
     }
 

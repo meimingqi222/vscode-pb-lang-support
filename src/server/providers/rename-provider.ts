@@ -13,6 +13,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
+import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
  * 准备重命名 - 检查是否可以重命名
@@ -250,8 +251,8 @@ function isUserDefinedSymbol(
             }
 
             // 检查常量定义
-            const constMatch = line.match(new RegExp(`^#(${word})\\s*=`, 'i'));
-            if (constMatch) {
+            const constMatch = parsePureBasicConstantDefinition(line) || parsePureBasicConstantDeclaration(line);
+            if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
                 return true;
             }
 
@@ -458,11 +459,16 @@ function handleModuleSymbolRename(
             }
 
             // 声明：Structure/Interface/Enumeration/常量名
+            const constMatch = parsePureBasicConstantDefinition(trimmed) || parsePureBasicConstantDeclaration(trimmed);
+            if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
+                const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } }, newText: newName });
+                continue;
+            }
             const defMatchers = [
                 new RegExp(`^Structure\\s+(${ident})\\b`, 'i'),
                 new RegExp(`^Interface\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^#(${ident})\\b`, 'i')
+                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i')
             ];
             for (const r of defMatchers) {
                 const mm = trimmed.match(r);
@@ -518,6 +524,10 @@ function getStructAccessFromLine(line: string, character: number): { varName: st
         }
     }
     return null;
+}
+
+function normalizeConstantName(name: string): string {
+    return name.replace(/[.$@]+$/, '').toLowerCase();
 }
 
 function getVariableStructureAt(document: TextDocument, lineNumber: number, varName: string): string | null {

@@ -13,6 +13,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath } from '../utils/fs-utils';
 import { getWorkspaceFiles } from '../indexer/workspace-index';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
+import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
  * 处理定义请求
@@ -368,14 +369,14 @@ function findDefinitionsInDocument(document: TextDocument, word: string): Locati
         }
 
         // 查找常量定义
-        const constMatch = line.match(new RegExp(`^#(${word})\\s*=`, 'i'));
-        if (constMatch) {
+        const constMatch = parsePureBasicConstantDefinition(line);
+        if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
             const startChar = lines[i].indexOf('#') + 1;
             definitions.push({
                 uri: document.uri,
                 range: {
                     start: { line: i, character: startChar },
-                    end: { line: i, character: startChar + word.length }
+                    end: { line: i, character: startChar + constMatch.name.length }
                 }
             });
         }
@@ -452,10 +453,10 @@ function findModuleSymbolDefinition(
 
             // 在 DeclareModule 中查找常量、结构、接口、枚举名
             if (inDeclare) {
-                const constMatch = line.match(new RegExp(`^#(${ident})\\b`, 'i'));
-                if (constMatch) {
-                    const startChar = raw.indexOf('#' + constMatch[1]) + 1;
-                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + ident.length } } });
+                const constMatch = parsePureBasicConstantDefinition(line) || parsePureBasicConstantDeclaration(line);
+                if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
+                    const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } } });
                 }
                 const structMatch = line.match(new RegExp(`^Structure\\s+(${ident})\\b`, 'i'));
                 if (structMatch) {
@@ -476,10 +477,10 @@ function findModuleSymbolDefinition(
 
             // 在 Module 中也允许出现常量/结构（较少见，但容错）
             if (inModule) {
-                const constMatch = line.match(new RegExp(`^#(${ident})\\b`, 'i'));
-                if (constMatch) {
-                    const startChar = raw.indexOf('#' + constMatch[1]) + 1;
-                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + ident.length } } });
+                const constMatch = parsePureBasicConstantDefinition(line) || parsePureBasicConstantDeclaration(line);
+                if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
+                    const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                    defs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } } });
                 }
                 const structMatch = line.match(new RegExp(`^Structure\\s+(${ident})\\b`, 'i'));
                 if (structMatch) {
@@ -490,6 +491,10 @@ function findModuleSymbolDefinition(
         }
     }
     return defs;
+}
+
+function normalizeConstantName(name: string): string {
+    return name.replace(/[.$@]+$/, '').toLowerCase();
 }
 
 /**
