@@ -192,7 +192,7 @@ function findModuleFunctionDefinition(
 
             // 在模块内查找函数定义
             if (inModule) {
-                const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${functionName})\\s*\\(`, 'i'));
+                const procMatch = line.match(new RegExp(`^Procedure(?:C|DLL|CDLL)?(?:\\.\\w+)?\\s+(${functionName})\\s*\\(`, 'i'));
                 if (procMatch) {
                     const startChar = lines[i].indexOf(procMatch[1]);
                     definitions.push({
@@ -303,7 +303,7 @@ function findDefinitionsInDocument(document: TextDocument, word: string): Locati
         const line = lines[i].trim();
 
         // 查找过程定义
-        const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${word})\\s*\\(`, 'i'));
+        const procMatch = line.match(new RegExp(`^Procedure(?:C|DLL|CDLL)?(?:\\.\\w+)?\\s+(${word})\\s*\\(`, 'i'));
         if (procMatch) {
             const startChar = lines[i].indexOf(procMatch[1]);
             definitions.push({

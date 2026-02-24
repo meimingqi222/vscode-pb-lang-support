@@ -1,0 +1,18 @@
+import { EventEmitter } from 'events';
+import { CommandInfo } from '../types/debugTypes';
+import { serialize } from '../protocol/CommandInfo';
+
+export type DebugTransportKind = 'pipe' | 'network' | 'native';
+
+export interface IDebugTransport extends EventEmitter {
+  readonly kind: DebugTransportKind;
+  readonly isConnected: boolean;
+  listen(): Promise<void>;
+  send(info: Parameters<typeof serialize>[0]): void;
+  close(): void;
+  getCommunicationString(): string;
+  on(event: 'message', listener: (msg: CommandInfo) => void): this;
+  on(event: 'connected' | 'end', listener: () => void): this;
+  on(event: 'error', listener: (err: Error) => void): this;
+}
+

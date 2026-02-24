@@ -18,8 +18,10 @@ export const validateGeneric: ValidatorFunction = (
     diagnostics
 ) => {
     // 验证常量定义
-    if (line.startsWith('#')) {
-        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)/);
+    // 跳过模块访问的常量（如 Module::#Constant）
+    if (line.startsWith('#') && !line.includes('::')) {
+        // 支持类型后缀：$（字符串）、@（整数）、.f/.d/.b/.c/.w/.l/.q/.i 等
+        const constMatch = line.match(/^#([a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?)\s*=\s*(.+)/);
         if (line.includes('=') && !constMatch) {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,

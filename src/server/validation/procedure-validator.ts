@@ -55,10 +55,12 @@ export const validateProcedure: ValidatorFunction = (
             }
 
             // 验证参数语法：支持参数中包含如 List/Array/Map 的 "()" 等嵌套括号
-            const openIdx = line.indexOf('(');
-            const closeIdx = line.lastIndexOf(')');
+            // 先移除行内注释，避免注释中的括号干扰参数解析
+            const lineWithoutComment = line.split(';')[0];
+            const openIdx = lineWithoutComment.indexOf('(');
+            const closeIdx = lineWithoutComment.lastIndexOf(')');
             if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
-                const params = line.substring(openIdx + 1, closeIdx);
+                const params = lineWithoutComment.substring(openIdx + 1, closeIdx);
                 if (params.trim().length > 0) {
                     validateParameters(params, lineNum, originalLine, diagnostics);
                 }
