@@ -190,6 +190,7 @@ export class PBDebugSession extends DebugSession {
 
       this.transport.on('message', (msg: CommandInfo) => this.onMessage(msg));
       this.transport.on('error',   (err: Error) => this.log(`Transport(${this.transportKind}) error: ${err.message}`));
+      this.transport.on('log',     (msg: string) => this.log(`[Transport] ${msg}`));
       this.transport.on('end', () => {
         if (!this.state.isTerminated()) {
           this.state.transition('terminated');
@@ -285,22 +286,67 @@ export class PBDebugSession extends DebugSession {
       this.state.transition('launching');
       this.log(`Launching: ${this.compileResult.executablePath}`);
       const commString = this.communicationString ?? this.transport.getCommunicationString();
-      this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString);
-      this.debugProc.on('exit', (code) => this.log(`Debuggee exited (code=${code})`));
+      this.log(`Communication string: ${commString}`);
+      this.log(`Transport kind: ${this.transportKind}, isConnected: ${this.transport.isConnected}`);
+      
+      // For FIFO transport, we need to launch first, then connect
+      if (this.transportKind === 'fifo') {
+        this.log('FIFO transport: launching program first, then connecting...');
+        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString);
+        this.debugProc.on('exit', (code, signal) => this.log(`Debuggee exited (code=${code}, signal=${signal})`));
+        
+        // Log process events
+        this.debugProc.on('error', (err) => this.log(`Debuggee process error: ${err.message}`));
+        if (this.debugProc.stdout) {
+          this.debugProc.stdout.on('data', (data) => this.log(`[Debuggee stdout] ${data.toString().trim()}`));
+        }
+        if (this.debugProc.stderr) {
+          this.debugProc.stderr.on('data', (data) => this.log(`[Debuggee stderr] ${data.toString().trim()}`));
+        }
+        
+        // Wait a bit for program to start and read the connection file
+        this.log('Waiting for program to start...');
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Now connect to FIFOs
+        this.log('Connecting to FIFOs...');
+        await (this.transport as any).connect();
+        this.log('FIFOs connected');
+      } else {
+        // Network/Pipe transport: connect first, then launch
+        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString);
+        this.debugProc.on('exit', (code, signal) => this.log(`Debuggee exited (code=${code}, signal=${signal})`));
+        
+        // Log process events
+        this.debugProc.on('error', (err) => this.log(`Debuggee process error: ${err.message}`));
+        if (this.debugProc.stdout) {
+          this.debugProc.stdout.on('data', (data) => this.log(`[Debuggee stdout] ${data.toString().trim()}`));
+        }
+        if (this.debugProc.stderr) {
+          this.debugProc.stderr.on('data', (data) => this.log(`[Debuggee stderr] ${data.toString().trim()}`));
+        }
 
-      await this.waitForConnection(15_000);
+        await this.waitForConnection(15_000);
+      }
       this.log('Both pipes connected');
 
       // Consume Init (cmd=0) and ExeMode (cmd=2) — these arrive before any commands
-      await this.performHandshake();
+      await this.performHandshake(5_000);
 
       // Send any breakpoints set before the program was ready
+      // Note: On macOS, breakpoints must be sent after handshake but before Run
       this.flushPendingBreakpoints();
+      
+      // Wait for breakpoints to be processed
+      this.log('Waiting for breakpoints to be processed...');
+      await new Promise(r => setTimeout(r, 500));
 
       // Always send Run; entry stop (Stopped cmd=3, reason=CallDebugger) will
       // arrive and be handled by onMessage → handleStopped.
+      this.log('Sending Run command...');
       this.state.transition('running');
       this.transport.send({ command: PBCommand.Run });
+      this.log('Run command sent');
 
     } catch (err) {
       this.sendEvent(new OutputEvent(
@@ -660,10 +706,13 @@ export class PBDebugSession extends DebugSession {
   // -------------------------------------------------------------------------
 
   private onMessage(msg: CommandInfo): void {
+    this.log(`onMessage received: cmd=${msg.command}, value1=${msg.value1}, value2=${msg.value2}, dataLen=${msg.data.length}`);
+    
     // Check if there's a pending async response waiting for this command ID
     const pendingQueue = this.pendingResponse.get(msg.command);
     const pending = pendingQueue?.shift();
     if (pending) {
+      this.log(`Delivering message to pending handler for cmd=${msg.command}`);
       if (pendingQueue && pendingQueue.length === 0) {
         this.pendingResponse.delete(msg.command);
       }
@@ -673,8 +722,19 @@ export class PBDebugSession extends DebugSession {
 
     // Unsolicited events from the debuggee
     switch (msg.command) {
+      case PBEvent.Init:      // 0
+        this.log(`Init message received (late)`);
+        if (msg.value2 !== 12) {
+          this.log(`Warning: protocol version mismatch (expected 12, got ${msg.value2})`);
+        }
+        this.parseIncludedFiles(msg.data);
+        break;
       case PBEvent.ExeMode:   // 2 – executable mode info, no action needed
         this.log(`ExeMode: flags=${msg.value1},${msg.value2}`);
+        this.isUnicode = (msg.value1 & 1) !== 0;
+        this.is64bit = (msg.value1 & 4) !== 0;
+        this.log(`String mode: ${this.isUnicode ? 'Unicode' : 'ANSI'}`);
+        this.log(`Detected architecture: ${this.is64bit ? '64-bit' : '32-bit'}`);
         break;
       case PBEvent.Stopped:   // 3
         this.handleStopped(msg);
@@ -689,6 +749,9 @@ export class PBDebugSession extends DebugSession {
       case PBEvent.DebugDouble:   // 6
       case PBEvent.DebugQuad:     // 7
         this.handleDebugOutput(msg);
+        break;
+      case 29:  // Unknown command (possibly heartbeat/status)
+        this.log(`Unknown cmd=29 received (possibly heartbeat/status)`);
         break;
       default:
         this.log(`Unhandled event from program: cmd=${msg.command}`);
@@ -809,13 +872,21 @@ export class PBDebugSession extends DebugSession {
   // -------------------------------------------------------------------------
 
   private waitForConnection(timeoutMs: number): Promise<void> {
-    if (this.transport?.isConnected) return Promise.resolve();
+    this.log(`waitForConnection: transport=${!!this.transport}, isConnected=${this.transport?.isConnected}`);
+    if (this.transport?.isConnected) {
+      this.log('waitForConnection: already connected');
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(new Error('Timed out waiting for PureBasic program to connect')),
+        () => {
+          this.log(`waitForConnection: TIMEOUT after ${timeoutMs}ms`);
+          reject(new Error('Timed out waiting for PureBasic program to connect'));
+        },
         timeoutMs,
       );
       this.transport!.once('connected', () => {
+        this.log('waitForConnection: connected event received');
         clearTimeout(timer);
         resolve();
       });
@@ -839,7 +910,8 @@ export class PBDebugSession extends DebugSession {
    * Both are consumed via pendingResponse so they don't reach the switch-case
    * handlers in onMessage.  Times out after 3 s to tolerate unusual builds.
    */
-  private performHandshake(): Promise<void> {
+  private performHandshake(timeoutMs = 3_000): Promise<void> {
+    this.log(`performHandshake starting with timeout=${timeoutMs}ms`);
     return new Promise((resolve) => {
       const removePending = (eventId: number): void => {
         const queue = this.pendingResponse.get(eventId);
@@ -863,11 +935,15 @@ export class PBDebugSession extends DebugSession {
       };
 
       const timer = setTimeout(() => {
+        this.log(`Handshake timeout after ${timeoutMs}ms - checking pending queue state`);
+        const initQueue = this.pendingResponse.get(PBEvent.Init);
+        const exeModeQueue = this.pendingResponse.get(PBEvent.ExeMode);
+        this.log(`Pending queues - Init: ${initQueue?.length ?? 0}, ExeMode: ${exeModeQueue?.length ?? 0}`);
         removePending(PBEvent.Init);
         removePending(PBEvent.ExeMode);
         this.log('Handshake timeout – proceeding');
         resolve();
-      }, 3_000);
+      }, timeoutMs);
 
       // Consume Init: parse the file-path list and validate version
       pushPending(PBEvent.Init, (msg) => {
@@ -1021,15 +1097,30 @@ export class PBDebugSession extends DebugSession {
     const hexPreview = valsMsg.data.slice(0, Math.min(32, valsMsg.data.length)).toString('hex');
     this.log(`fetchGlobals: values data hex (first 32 bytes): ${hexPreview}`);
     
-    const parsed = parseValues(valsMsg.data, names, this.is64bit);
-    this.log(`fetchGlobals: parseValues returned ${parsed.length} variables`);
-    for (const v of parsed) {
-      this.log(`fetchGlobals:   ${v.name} (${v.typeName}) = ${v.value}`);
+    // Globals values format: [1B rawType][value data] per variable, sequential.
+    // Use decodePBValue (same decoder as locals) to correctly handle strings, etc.
+    const result: DebugProtocol.Variable[] = [];
+    let offset = 0;
+    for (const { name } of names) {
+      if (offset >= valsMsg.data.length) break;
+
+      const rawType = valsMsg.data.readUInt8(offset);
+      offset += 1;
+
+      const decoded = this.decodePBValue(rawType, valsMsg.data, offset);
+      if (decoded.bytesRead <= 0 && decoded.typeName !== 'Structure') break;
+      offset += decoded.bytesRead;
+
+      this.log(`fetchGlobals:   ${name} (${decoded.typeName}) = ${decoded.value}`);
+      result.push({
+        name,
+        value: decoded.value,
+        type: decoded.typeName,
+        variablesReference: 0,
+      });
     }
-    
-    return parsed.map((v) => ({
-      name: v.name, value: v.value, type: v.typeName, variablesReference: 0,
-    }));
+
+    return result;
   }
 
   private async fetchLocals(procedureIndex: number): Promise<DebugProtocol.Variable[]> {
@@ -1219,21 +1310,23 @@ export class PBDebugSession extends DebugSession {
     this.log(`  Resolved fileNum ${fileNum} for ${filePath}`);
     this.log(`  Current file map: ${JSON.stringify([...this.fileNumToPath])}`);
 
-    // Clear all breakpoints for this file
-    this.transport.send({
-      command: PBCommand.BreakPoint,
-      value1:  BreakPointAction.Clear,
-      value2:  fileNum,   // file index only for clear
-    });
+    // macOS debug: Try without Clear first
+    this.log(`  Sending ${lines.length} breakpoints (skipping Clear for macOS test)`);
 
     // Add the new set
     for (const line of lines) {
-      // Convert DAP 1-based line to PB 0-based, pack with file index
-      this.transport.send({
-        command: PBCommand.BreakPoint,
-        value1:  BreakPointAction.Add,
-        value2:  makeDebuggerLine(fileNum, line - 1),
-      });
+      const packedLine = makeDebuggerLine(fileNum, line - 1);
+      this.log(`    Adding breakpoint at line ${line} (packed=${packedLine}, fileNum=${fileNum})`);
+      try {
+        this.transport.send({
+          command: PBCommand.BreakPoint,
+          value1:  BreakPointAction.Add,
+          value2:  packedLine,
+        });
+        this.log(`    Breakpoint sent successfully`);
+      } catch (err: any) {
+        this.log(`    Error sending breakpoint: ${err.message}`);
+      }
     }
   }
 

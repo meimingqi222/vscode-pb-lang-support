@@ -1,6 +1,6 @@
 import { DebugProtocol } from '@vscode/debugprotocol';
 
-export type LaunchTransportMode = 'auto' | 'pipe' | 'network' | 'native';
+export type LaunchTransportMode = 'auto' | 'pipe' | 'network' | 'fifo' | 'native';
 
 export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   /** Path to the .pb source file to debug. */
@@ -13,7 +13,7 @@ export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArgum
   trace?: boolean;
   /** Extra command-line arguments to pass to pbcompiler. */
   compilerArgs?: string[];
-  /** Debug transport mode. auto: win32->pipe, linux/macOS->network. */
+  /** Debug transport mode. auto: win32->pipe, macOS/linux->fifo. */
   transport?: LaunchTransportMode;
   /** Network debug host used when transport resolves to network. */
   debugHost?: string;

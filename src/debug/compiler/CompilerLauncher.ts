@@ -172,10 +172,22 @@ export class CompilerLauncher {
       addBase(pureBasicHome);
     }
 
-    addBase('/usr/local/purebasic');
-    addBase('/opt/purebasic');
-    addBase('/opt/PureBasic');
-    addBase('/Applications/PureBasic');
+    if (platform === 'darwin') {
+      // macOS: PureBasic is typically installed as an .app bundle
+      addBase('/Applications/PureBasic.app/Contents/Resources');
+      addBase(path.join(os.homedir(), 'Applications/PureBasic.app/Contents/Resources'));
+      // Also check Homebrew locations
+      addBase('/opt/homebrew/opt/purebasic');
+      addBase('/usr/local/opt/purebasic');
+    } else {
+      // Linux: common installation paths
+      addBase('/opt/purebasic');
+      addBase('/opt/PureBasic');
+      addBase('/usr/share/purebasic');
+      addBase('/usr/local/purebasic');
+      addBase('/usr/lib/purebasic');
+    }
+
     addBase(path.join(os.homedir(), 'purebasic'));
     addBase(path.join(os.homedir(), 'PureBasic'));
 
@@ -244,6 +256,36 @@ export class CompilerLauncher {
   }
 
   /**
+   * Detect PUREBASIC_HOME from compiler path.
+   * For macOS .app bundle: /xxx/PureBasic.app/Contents/Resources/compilers/pbcompiler
+   * For Linux/others: /xxx/purebasic/compilers/pbcompiler
+   */
+  private static detectPureBasicHome(compilerPath: string): string | undefined {
+    // Normalize path
+    const normalized = path.normalize(compilerPath);
+    
+    // Check if it's inside an .app bundle (macOS)
+    const appMatch = normalized.match(/(.+\.app\/Contents\/Resources)/i);
+    if (appMatch) {
+      return appMatch[1];
+    }
+    
+    // Check if it's in a compilers subdirectory
+    const compilersIdx = normalized.toLowerCase().indexOf('/compilers/');
+    if (compilersIdx > 0) {
+      return normalized.substring(0, compilersIdx);
+    }
+    
+    // Check if parent directory exists and might be the home
+    const parentDir = path.dirname(normalized);
+    if (parentDir && parentDir !== normalized) {
+      return parentDir;
+    }
+    
+    return undefined;
+  }
+
+  /**
    * Compile `sourcePath` with the PureBasic compiler in debugger mode.
    * Resolves with the path of the generated executable.
    */
@@ -255,7 +297,17 @@ export class CompilerLauncher {
       const args = this.getCompileArgs(sourcePath, executablePath);
       this.log(`Compile: ${this.compiler} ${args.join(' ')}`);
 
-      const proc = cp.spawn(this.compiler, args, { cwd: dir });
+      // Prepare environment with PUREBASIC_HOME if needed
+      const env = { ...process.env };
+      if (!env.PUREBASIC_HOME) {
+        const pbHome = CompilerLauncher.detectPureBasicHome(this.compiler);
+        if (pbHome) {
+          env.PUREBASIC_HOME = pbHome;
+          this.log(`Setting PUREBASIC_HOME=${pbHome}`);
+        }
+      }
+
+      const proc = cp.spawn(this.compiler, args, { cwd: dir, env });
 
       let stderr = '';
       let stdout = '';
@@ -306,18 +358,64 @@ export class CompilerLauncher {
    */
   launch(executablePath: string, communicationString: string): cp.ChildProcess {
     this.log(`Launch: ${executablePath}  [comm=${communicationString}]`);
+    
+    // Check if executable exists and log its stats
+    try {
+      const stats = fs.statSync(executablePath);
+      this.log(`Executable stats: size=${stats.size}, mode=${stats.mode.toString(8)}`);
+    } catch (err) {
+      this.log(`Warning: Could not stat executable: ${err}`);
+    }
+    
+    // Prepare environment with required variables
+    // PB_DEBUGGER_Options format: <unicode>;<callOnStart>;<callOnEnd>;<bigEndian>
+    // For FIFO on macOS, we also need to set this for the program to enter debug mode
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      PB_DEBUGGER_Communication: communicationString,
+      PB_DEBUGGER_Options: '1;1;0;0',  // unicode=1, callOnStart=1, callOnEnd=0, bigEndian=0
+    };
+    
+    // Ensure PUREBASIC_HOME is set for the debuggee (needed on macOS/Linux)
+    if (!env.PUREBASIC_HOME) {
+      const pbHome = CompilerLauncher.detectPureBasicHome(this.compiler);
+      if (pbHome) {
+        env.PUREBASIC_HOME = pbHome;
+        this.log(`Setting PUREBASIC_HOME for debuggee: ${pbHome}`);
+      }
+    }
+    
+    this.log(`Environment PB_DEBUGGER_Options: ${env.PB_DEBUGGER_Options}`);
+    this.log(`Environment PUREBASIC_HOME: ${env.PUREBASIC_HOME ?? '(not set)'}`);
+    
+    // For FIFO on macOS, we don't need to pass communication string via env
+    // as it's read from /tmp/.pbdebugger.out
+    const useFifo = communicationString.startsWith('FifoFiles;');
+    
     const proc = cp.spawn(executablePath, [], {
-      env: {
-        ...process.env,
-        PB_DEBUGGER_Communication: communicationString,
-        PB_DEBUGGER_Options: '1;1;0;0',
-      },
+      env,
       detached: false,
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+    
+    this.log(`Debuggee process spawned with pid=${proc.pid}, useFifo=${useFifo}`);
+    
+    // Capture stdout/stderr for debugging
+    proc.stdout?.on('data', (data: Buffer) => {
+      this.log(`[Debuggee stdout] ${data.toString().trim()}`);
+    });
+    proc.stderr?.on('data', (data: Buffer) => {
+      this.log(`[Debuggee stderr] ${data.toString().trim()}`);
+    });
+    
     proc.on('error', (err) => {
       process.stderr.write(`[PBDebug] Launch error: ${err.message}\n`);
     });
+    
+    proc.on('exit', (code, signal) => {
+      this.log(`Debuggee process exited with code=${code}, signal=${signal}`);
+    });
+    
     return proc;
   }
 

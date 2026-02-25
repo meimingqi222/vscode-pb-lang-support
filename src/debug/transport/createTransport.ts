@@ -1,7 +1,8 @@
 import { LaunchTransportMode } from '../types/debugTypes';
-import { IDebugTransport } from './IDebugTransport';
+import { IDebugTransport, DebugTransportKind } from './IDebugTransport';
 import { NetworkTransport } from './NetworkTransport';
 import { PipeTransport } from './PipeTransport';
+import { FifoTransport } from './FifoTransport';
 
 export interface CreateTransportOptions {
   platform?: NodeJS.Platform;
@@ -15,28 +16,36 @@ export interface CreateTransportOptions {
 export function createTransport(options: CreateTransportOptions): IDebugTransport {
   const platform = options.platform ?? process.platform;
   const requested = options.transport ?? 'auto';
-  const resolved = requested === 'auto'
-    ? (platform === 'win32' ? 'pipe' : 'network')
-    : requested;
 
-  if (resolved === 'native') {
-    throw new Error(
-      'transport "native" is planned but not implemented yet. Use "network" on Linux/macOS for now.',
-    );
+  // Explicit transport selection
+  if (requested === 'fifo') {
+    return new FifoTransport();
   }
 
-  if (resolved === 'pipe') {
+  if (requested === 'pipe') {
     if (platform !== 'win32') {
-      throw new Error('transport "pipe" is only supported on Windows. Use "network" on Linux/macOS.');
+      throw new Error('transport "pipe" is only supported on Windows. Use "fifo" on Linux/macOS.');
     }
     return new PipeTransport(options.pipeId);
   }
 
-  const host = (options.debugHost ?? '127.0.0.1').trim() || '127.0.0.1';
-  const port = options.debugPort ?? 0;
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error(`Invalid debugPort "${port}". Expected integer in range 0..65535.`);
+  if (requested === 'network') {
+    const host = (options.debugHost ?? '127.0.0.1').trim() || '127.0.0.1';
+    const port = options.debugPort ?? 0;
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new Error(`Invalid debugPort "${port}". Expected integer in range 0..65535.`);
+    }
+    return new NetworkTransport(host, port, options.debugPassword);
   }
-  return new NetworkTransport(host, port, options.debugPassword);
+
+  // Auto mode: Windows uses Pipe, macOS/Linux uses FIFO
+  if (requested === 'auto') {
+    if (platform === 'win32') {
+      return new PipeTransport(options.pipeId);
+    }
+    return new FifoTransport();
+  }
+
+  throw new Error(`Unknown transport mode: ${requested}`);
 }
 
