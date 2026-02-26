@@ -38,8 +38,8 @@ export function createTransport(options: CreateTransportOptions): IDebugTranspor
     return new NetworkTransport(host, port, options.debugPassword);
   }
 
-  // Auto mode: Windows uses Pipe, macOS/Linux uses FIFO
-  if (requested === 'auto') {
+  // Auto/Native mode: Windows uses Pipe, macOS/Linux uses FIFO
+  if (requested === 'auto' || requested === 'native') {
     if (platform === 'win32') {
       return new PipeTransport(options.pipeId);
     }

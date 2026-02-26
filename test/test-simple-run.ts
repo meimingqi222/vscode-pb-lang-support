@@ -26,14 +26,14 @@ async function main() {
   try { fs.unlinkSync(fifoOut); } catch {}
   cp.execSync(`mkfifo "${fifoIn}" && mkfifo "${fifoOut}"`);
   
-  // Write connection file
-  const ts = Math.floor(Date.now() / 1000);
-  fs.writeFileSync('/tmp/.pbdebugger.out', 
-    `PB_DEBUGGER_Communication\n${ts}\nFifoFiles;${fifoIn};${fifoOut}\n1;1;0;0\n`);
-  
   console.log('Launching program...');
   const prog = cp.spawn(exe, [], {
-    env: { ...process.env, PUREBASIC_HOME: PB_HOME }
+    env: {
+      ...process.env,
+      PUREBASIC_HOME: PB_HOME,
+      PB_DEBUGGER_Communication: `FifoFiles;${fifoIn};${fifoOut}`,
+      PB_DEBUGGER_Options: '1;1;0;0',
+    }
   });
   
   let stderr = '';
@@ -126,7 +126,7 @@ async function main() {
   fs.closeSync(fdIn); fs.closeSync(fdOut);
   try { fs.unlinkSync(fifoIn); } catch {}
   try { fs.unlinkSync(fifoOut); } catch {}
-  try { fs.unlinkSync('/tmp/.pbdebugger.out'); } catch {}
+
   try { fs.unlinkSync(src); } catch {}
   try { fs.unlinkSync(exe); } catch {}
 }

@@ -388,8 +388,9 @@ export class CompilerLauncher {
     this.log(`Environment PB_DEBUGGER_Options: ${env.PB_DEBUGGER_Options}`);
     this.log(`Environment PUREBASIC_HOME: ${env.PUREBASIC_HOME ?? '(not set)'}`);
     
-    // For FIFO on macOS, we don't need to pass communication string via env
-    // as it's read from /tmp/.pbdebugger.out
+    // FIFO mode is detected from the communication string for logging only.
+    // Current verification shows the debuggee reads PB_DEBUGGER_Communication from env,
+    // and does not require a fixed /tmp/.pbdebugger.out path.
     const useFifo = communicationString.startsWith('FifoFiles;');
     
     const proc = cp.spawn(executablePath, [], {

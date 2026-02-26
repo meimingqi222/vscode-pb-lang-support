@@ -66,15 +66,10 @@ async function runTest(): Promise<void> {
   await createFifo(outFifo);
   console.log(`3. Created FIFOs: in=${inFifo}, out=${outFifo}`);
 
-  // Step 4: Write connection file
-  const timestamp = Math.floor(Date.now() / 1000);
-  const connFile = '/tmp/.pbdebugger.out';
-  const connContent = `PB_DEBUGGER_Communication\n${timestamp}\nFifoFiles;${inFifo};${outFifo}\n1;1;0;0\n`;
-  fs.writeFileSync(connFile, connContent);
-  console.log(`4. Wrote connection file: ${connFile}`);
+  // Step 4: Launch program
+  console.log('4. Launching program...');
 
-  // Step 5: Launch program
-  console.log('5. Launching program...');
+  console.log('   Launching program process...');
   const env = {
     ...process.env,
     PUREBASIC_HOME: PB_HOME,
@@ -102,8 +97,8 @@ async function runTest(): Promise<void> {
     console.log(`   Program exited: code=${code}, signal=${signal}`);
   });
   
-  // Step 6: Connect to FIFOs
-  console.log('6. Connecting to FIFOs...');
+  // Step 5: Connect to FIFOs
+  console.log('5. Connecting to FIFOs...');
   await delay(500);
 
   // Helper to open FIFO with retry
@@ -125,98 +120,109 @@ async function runTest(): Promise<void> {
   // Open inFifo for reading (program writes here) - this should succeed first
   console.log('   Opening inFifo (read)...');
   const inFd = await openFifoWithRetry(inFifo, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
-  const inStream = fs.createReadStream('', { fd: inFd });
   console.log('   inFifo opened');
-  
+
   // Open outFifo for writing (program reads from here)
   console.log('   Opening outFifo (write)...');
   const outFd = await openFifoWithRetry(outFifo, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
-  const outStream = fs.createWriteStream('', { fd: outFd });
   console.log('   outFifo opened');
-  
+
   console.log('   FIFOs connected');
 
-  // Step 7: Receive Init and ExeMode
-  console.log('7. Waiting for Init/ExeMode...');
-  
   const messages: any[] = [];
-  let buffer = Buffer.alloc(0);
-  
+  let readBuffer = Buffer.alloc(0);
   const HEADER_SIZE = 20;
-  
-  inStream.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EAGAIN') {
-      // Ignore EAGAIN errors in non-blocking mode
-      return;
-    }
-    console.error('   inStream error:', err.message);
-  });
-  
-  inStream.on('data', (chunk: string | Buffer) => {
-    if (typeof chunk === 'string') chunk = Buffer.from(chunk, 'utf8');
-    buffer = Buffer.concat([buffer, chunk]);
-    
-    while (buffer.length >= HEADER_SIZE) {
-      const dataSize = buffer.readUInt32LE(4);
-      const totalSize = HEADER_SIZE + dataSize;
-      
-      if (buffer.length < totalSize) break;
-      
-      const msg = {
-        command: buffer.readUInt32LE(0),
-        dataSize,
-        value1: buffer.readUInt32LE(8),
-        value2: buffer.readUInt32LE(12),
-        timestamp: buffer.readUInt32LE(16),
-        data: buffer.slice(HEADER_SIZE, HEADER_SIZE + dataSize)
-      };
-      
-      messages.push(msg);
-      console.log(`   Received: cmd=${msg.command}, v1=${msg.value1}, v2=${msg.value2}, dataLen=${msg.data.length}`);
-      
-      buffer = buffer.slice(totalSize);
-    }
-  });
 
-  // Wait for messages
-  await delay(1000);
-  
+  const pumpMessages = (): void => {
+    while (true) {
+      const chunk = Buffer.alloc(4096);
+      let bytesRead = 0;
+      try {
+        bytesRead = fs.readSync(inFd, chunk, 0, chunk.length, null);
+      } catch (err: any) {
+        if (err.code === 'EAGAIN') {
+          break;
+        }
+        throw err;
+      }
+
+      if (bytesRead <= 0) {
+        break;
+      }
+
+      readBuffer = Buffer.concat([readBuffer, chunk.slice(0, bytesRead)]);
+
+      while (readBuffer.length >= HEADER_SIZE) {
+        const dataSize = readBuffer.readUInt32LE(4);
+        const totalSize = HEADER_SIZE + dataSize;
+        if (readBuffer.length < totalSize) {
+          break;
+        }
+
+        const msg = {
+          command: readBuffer.readUInt32LE(0),
+          dataSize,
+          value1: readBuffer.readUInt32LE(8),
+          value2: readBuffer.readUInt32LE(12),
+          timestamp: readBuffer.readUInt32LE(16),
+          data: readBuffer.slice(HEADER_SIZE, HEADER_SIZE + dataSize),
+        };
+        messages.push(msg);
+        console.log(`   Received: cmd=${msg.command}, v1=${msg.value1}, v2=${msg.value2}, dataLen=${msg.data.length}`);
+
+        readBuffer = readBuffer.slice(totalSize);
+      }
+    }
+  };
+
+  const waitForMessages = async (durationMs: number): Promise<void> => {
+    const deadline = Date.now() + durationMs;
+    while (Date.now() < deadline) {
+      pumpMessages();
+      await delay(50);
+    }
+  };
+
+  // Step 6: Receive Init and ExeMode
+  console.log('6. Waiting for Init/ExeMode...');
+  await waitForMessages(1000);
+
   // Check if we got Init (cmd=0) and ExeMode (cmd=2)
-  const initMsg = messages.find(m => m.command === 0);
-  const exeModeMsg = messages.find(m => m.command === 2);
-  
+  const initMsg = messages.find((m) => m.command === 0);
+  const exeModeMsg = messages.find((m) => m.command === 2);
+
   if (!initMsg) {
     console.error('   ERROR: No Init message received!');
     console.error('   Stderr:', stderr);
   } else {
     console.log('   Init received: version=' + initMsg.value2);
   }
-  
+
   if (!exeModeMsg) {
     console.error('   ERROR: No ExeMode message received!');
   } else {
     console.log('   ExeMode received: flags=' + exeModeMsg.value1);
   }
 
-  // Step 8: Send Run command
+  // Step 7: Send Run command
   if (initMsg && exeModeMsg) {
-    console.log('8. Sending Run command...');
-    
+    console.log('7. Sending Run command...');
+
     // Serialize Run command (cmd=2)
     const runCmd = Buffer.alloc(20);
-    runCmd.writeUInt32LE(2, 0);   // command = Run
-    runCmd.writeUInt32LE(0, 4);   // dataSize = 0
-    runCmd.writeUInt32LE(0, 8);   // value1 = 0
-    runCmd.writeUInt32LE(0, 12);  // value2 = 0
-    runCmd.writeUInt32LE(Math.floor(Date.now() / 1000), 16);  // timestamp
-    
-    outStream.write(runCmd);
+    runCmd.writeUInt32LE(2, 0); // command = Run
+    runCmd.writeUInt32LE(0, 4); // dataSize = 0
+    runCmd.writeUInt32LE(0, 8); // value1 = 0
+    runCmd.writeUInt32LE(0, 12); // value2 = 0
+    runCmd.writeUInt32LE(Math.floor(Date.now() / 1000), 16); // timestamp
+
+    fs.writeSync(outFd, runCmd);
     console.log('   Run command sent');
-    
+
     // Wait for program output
-    await delay(500);
-    
-    console.log('9. Checking for output...');
+    await waitForMessages(1000);
+
+    console.log('8. Checking for output...');
     console.log('   Messages received after Run:', messages.length);
     messages.slice(2).forEach((m, i) => {
       console.log(`   Message ${i + 3}: cmd=${m.command}`);
@@ -224,19 +230,16 @@ async function runTest(): Promise<void> {
   }
 
   // Cleanup
-  console.log('\n10. Cleaning up...');
+  console.log('\n9. Cleaning up...');
   program.kill();
   await delay(100);
   
-  inStream.destroy();
-  outStream.destroy();
-  
   try { fs.closeSync(inFd); } catch {}
   try { fs.closeSync(outFd); } catch {}
-  
+
   try { fs.unlinkSync(inFifo); } catch {}
   try { fs.unlinkSync(outFifo); } catch {}
-  try { fs.unlinkSync(connFile); } catch {}
+
   try { fs.unlinkSync(sourceFile); } catch {}
   try { fs.unlinkSync(exeFile); } catch {}
   

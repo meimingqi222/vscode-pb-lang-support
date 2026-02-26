@@ -806,7 +806,8 @@ export class PBDebugSession extends DebugSession {
     this.sendEvent(new OutputEvent(`Program exited (code ${exitCode})\n`, 'console'));
     this.state.transition('terminated');
     this.sendEvent(new TerminatedEvent());
-    this.cleanup();
+    // Program already ended naturally, no need to kill it
+    this.cleanup(false);
   }
 
   private handlePBError(msg: CommandInfo): void {
@@ -914,7 +915,7 @@ export class PBDebugSession extends DebugSession {
    */
   private performHandshake(timeoutMs = 3_000): Promise<void> {
     this.log(`performHandshake starting with timeout=${timeoutMs}ms`);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const removePending = (eventId: number): void => {
         const queue = this.pendingResponse.get(eventId);
         if (!queue || queue.length === 0) {
@@ -943,8 +944,8 @@ export class PBDebugSession extends DebugSession {
         this.log(`Pending queues - Init: ${initQueue?.length ?? 0}, ExeMode: ${exeModeQueue?.length ?? 0}`);
         removePending(PBEvent.Init);
         removePending(PBEvent.ExeMode);
-        this.log('Handshake timeout – proceeding');
-        resolve();
+        this.log('Handshake timeout – rejecting');
+        reject(new Error(`Handshake timeout after ${timeoutMs}ms: Init/ExeMode not received`));
       }, timeoutMs);
 
       // Consume Init: parse the file-path list and validate version
@@ -989,7 +990,8 @@ export class PBDebugSession extends DebugSession {
       const nullPos = data.indexOf(0, offset);
       const end = nullPos === -1 ? data.length : nullPos;
       const s = data.slice(offset, end).toString('utf8');
-      if (s) strings.push(s);
+      // Always push to preserve positional layout (strings[0]=workdir, strings[1]=main, strings[2+]=includes)
+      strings.push(s);
       offset = nullPos === -1 ? data.length : nullPos + 1;
     }
 
@@ -1031,30 +1033,33 @@ export class PBDebugSession extends DebugSession {
         return;
       }
 
+      // Create callback reference so we can remove the correct one on timeout
+      let callback: ((msg: CommandInfo) => void) | null = null;
+
       const timer = setTimeout(() => {
         const queue = this.pendingResponse.get(expectedEvent);
-        if (queue && queue.length > 0) {
-          queue.shift();
-          if (queue.length === 0) {
-            this.pendingResponse.delete(expectedEvent);
+        if (queue && callback) {
+          const index = queue.indexOf(callback);
+          if (index !== -1) {
+            queue.splice(index, 1);
+            if (queue.length === 0) {
+              this.pendingResponse.delete(expectedEvent);
+            }
           }
         }
         reject(new Error(`Timeout waiting for PB event ${expectedEvent}`));
       }, timeoutMs);
 
+      callback = (msg: CommandInfo) => {
+        clearTimeout(timer);
+        resolve(msg);
+      };
+
       const queue = this.pendingResponse.get(expectedEvent);
       if (queue) {
-        queue.push((msg) => {
-          clearTimeout(timer);
-          resolve(msg);
-        });
+        queue.push(callback);
       } else {
-        this.pendingResponse.set(expectedEvent, [
-          (msg) => {
-            clearTimeout(timer);
-            resolve(msg);
-          },
-        ]);
+        this.pendingResponse.set(expectedEvent, [callback]);
       }
 
       this.transport.send({
@@ -1082,9 +1087,13 @@ export class PBDebugSession extends DebugSession {
       this.log(`fetchGlobals: raw names data (hex): ${namesHex.substring(0, 200)}...`);
     }
     
-    // Try to decode first few bytes manually
-    const count = namesMsg.data.readUInt32LE(0);
-    this.log(`fetchGlobals: name count from first 4 bytes: ${count}`);
+    // Try to decode first few bytes manually (only if data is long enough)
+    if (namesMsg.data.length >= 4) {
+      const count = namesMsg.data.readUInt32LE(0);
+      this.log(`fetchGlobals: name count from first 4 bytes: ${count}`);
+    } else {
+      this.log(`fetchGlobals: data too short for count read (length=${namesMsg.data.length})`);
+    }
     
     const names = parseNames(namesMsg.data);
     this.log(`fetchGlobals: parsed ${names.length} names`);
@@ -1229,6 +1238,7 @@ export class PBDebugSession extends DebugSession {
 
     switch (baseType) {
       case 1:
+        if (offset + 1 > data.length) return { value: '<invalid>', typeName: 'Byte', bytesRead: 0 };
         return { value: String(data.readInt8(offset)), typeName: 'Byte', bytesRead: 1 };
       case 3:
         if (offset + 2 > data.length) return { value: '<invalid>', typeName: 'Word', bytesRead: 0 };
@@ -1281,6 +1291,7 @@ export class PBDebugSession extends DebugSession {
         return { value: `size=${size} current=${current.text}`, typeName: 'Map', bytesRead: intSize + 1 + current.bytes };
       }
       case 24:
+        if (offset + 1 > data.length) return { value: '<invalid>', typeName: 'Ascii', bytesRead: 0 };
         return { value: String(data.readInt8(offset)), typeName: 'Ascii', bytesRead: 1 };
       case 25:
         if (offset + 2 > data.length) return { value: '<invalid>', typeName: 'Unicode', bytesRead: 0 };
@@ -1314,8 +1325,20 @@ export class PBDebugSession extends DebugSession {
     this.log(`  Resolved fileNum ${fileNum} for ${filePath}`);
     this.log(`  Current file map: ${JSON.stringify([...this.fileNumToPath])}`);
 
-    // macOS debug: Try without Clear first
-    this.log(`  Sending ${lines.length} breakpoints (skipping Clear for macOS test)`);
+    // Clear existing breakpoints for this file first
+    this.log(`  Clearing existing breakpoints for fileNum ${fileNum}`);
+    try {
+      this.transport.send({
+        command: PBCommand.BreakPoint,
+        value1: BreakPointAction.Clear,
+        value2: fileNum << 16,
+      });
+      this.log(`  Clear command sent successfully`);
+    } catch (err: any) {
+      this.log(`  Error clearing breakpoints: ${err.message}`);
+    }
+
+    this.log(`  Sending ${lines.length} breakpoints`);
 
     // Add the new set
     for (const line of lines) {

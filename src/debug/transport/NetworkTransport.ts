@@ -23,7 +23,7 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
   private socket: net.Socket | null = null;
   private actualPort: number | null = null;
   private binaryBuffer = new MessageBuffer();
-  private textBuffer = '';
+  private textBuffer = Buffer.alloc(0);
   private handshakeComplete = false;
   private _connected = false;
   private connectionHandlerRegistered = false;
@@ -106,30 +106,41 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
    * Format: "CONNECT <version> DEBUGGER\n\n"
    */
   private handleTextHandshake(chunk: Buffer): void {
-    this.textBuffer += chunk.toString('utf8');
-    this.log(`Handshake buffer: ${JSON.stringify(this.textBuffer)}`);
-    
-    // Check for complete handshake message
-    const doubleNl = this.textBuffer.indexOf('\n\n');
-    const doubleCrnl = this.textBuffer.indexOf('\r\n\r\n');
-    const endIndex = doubleNl !== -1 ? doubleNl : (doubleCrnl !== -1 ? doubleCrnl : -1);
-    
+    // Accumulate raw buffer chunks to avoid binary data corruption from string conversion
+    this.textBuffer = Buffer.concat([this.textBuffer, chunk]);
+    this.log(`Handshake buffer size: ${this.textBuffer.length} bytes`);
+
+    // Search for delimiter in raw buffer
+    const delimiter = Buffer.from('\n\n');
+    const crDelimiter = Buffer.from('\r\n\r\n');
+    let endIndex = this.textBuffer.indexOf(delimiter);
+    let delimiterLength = 2;
+
+    if (endIndex === -1) {
+      endIndex = this.textBuffer.indexOf(crDelimiter);
+      delimiterLength = 4;
+    }
+
     if (endIndex === -1) {
       // Incomplete handshake message, wait for more data
       return;
     }
-    
-    const message = this.textBuffer.substring(0, endIndex).trim();
-    this.textBuffer = this.textBuffer.substring(endIndex + (doubleNl !== -1 ? 2 : 4));
-    
+
+    // Only decode the handshake message portion as UTF-8
+    const message = this.textBuffer.slice(0, endIndex).toString('utf8').trim();
+
+    // Save any remaining bytes after the delimiter (binary data)
+    const remaining = this.textBuffer.slice(endIndex + delimiterLength);
+    this.textBuffer = Buffer.alloc(0);
+
     this.log(`Received handshake: ${message}`);
-    
+
     // Parse CONNECT message
     const connectMatch = message.match(/^CONNECT\s+(\d+)\s+DEBUGGER$/i);
     if (connectMatch) {
       const version = parseInt(connectMatch[1], 10);
       this.log(`Handshake successful, version=${version}`);
-      
+
       // Send response: version followed by newline (password if set)
       // Format: "<version>\n" or "<version>;<password>\n"
       let response = `${version}\n`;
@@ -138,18 +149,16 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       }
       this.log(`Sending handshake response: ${this.password ? '<version>;<redacted>' : '<version>'}`);
       this.socket?.write(Buffer.from(response, 'utf8'));
-      
+
       // Mark handshake complete
       this.handshakeComplete = true;
       this._connected = true;
       this.log(`Handshake marked complete, _connected=${this._connected}, emitting connected event`);
       this.emit('connected');
-      
-      // Process any remaining data as binary
-      if (this.textBuffer.length > 0) {
-        this.log(`Processing ${this.textBuffer.length} remaining bytes as binary`);
-        const remaining = Buffer.from(this.textBuffer, 'utf8');
-        this.textBuffer = '';
+
+      // Process any remaining data as binary (pass raw Buffer without string conversion)
+      if (remaining.length > 0) {
+        this.log(`Processing ${remaining.length} remaining bytes as binary`);
         this.handleBinaryData(remaining);
       }
     } else {
@@ -198,7 +207,7 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
     this.handshakeComplete = false;
     try { this.server.close(); } catch {}
     this.binaryBuffer.clear();
-    this.textBuffer = '';
+    this.textBuffer = Buffer.alloc(0);
     this.actualPort = null;
   }
 

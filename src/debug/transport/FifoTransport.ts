@@ -19,6 +19,7 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
 
   private inFifoPath: string = '';
   private outFifoPath: string = '';
+  private connectionFilePath: string = '';
   private inFd: number | null = null;
   private outFd: number | null = null;
   private outStream: fs.WriteStream | null = null;
@@ -38,6 +39,8 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
     const id = Math.random().toString(36).substring(2, 10);
     this.inFifoPath = path.join(os.tmpdir(), `.pb-fifo-in-${id}`);
     this.outFifoPath = path.join(os.tmpdir(), `.pb-fifo-out-${id}`);
+    // Use instance-specific connection file to avoid conflicts with multiple VS Code windows
+    this.connectionFilePath = path.join(os.tmpdir(), `.pbdebugger-${id}.out`);
 
     await this.createFifo(this.inFifoPath);
     await this.createFifo(this.outFifoPath);
@@ -175,17 +178,16 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
   }
 
   private async writeConnectionFile(): Promise<void> {
-    const filePath = '/tmp/.pbdebugger.out';
     const timestamp = Math.floor(Date.now() / 1000);
     const info = `FifoFiles;${this.inFifoPath};${this.outFifoPath}`;
     const options = `1;1;0;0`;
 
     const content = `PB_DEBUGGER_Communication\n${timestamp}\n${info}\n${options}\n`;
 
-    await fs.promises.writeFile(filePath, content, 'utf8');
-    this.log(`Connection file written: ${filePath} with timestamp ${timestamp}`);
+    await fs.promises.writeFile(this.connectionFilePath, content, 'utf8');
+    this.log(`Connection file written: ${this.connectionFilePath} with timestamp ${timestamp}`);
 
-    const stats = await fs.promises.stat(filePath);
+    const stats = await fs.promises.stat(this.connectionFilePath);
     this.log(`File mtime: ${stats.mtime.getTime() / 1000}`);
   }
 
@@ -251,7 +253,9 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
 
     try { fs.unlinkSync(this.inFifoPath); } catch {}
     try { fs.unlinkSync(this.outFifoPath); } catch {}
-    try { fs.unlinkSync('/tmp/.pbdebugger.out'); } catch {}
+    if (this.connectionFilePath) {
+      try { fs.unlinkSync(this.connectionFilePath); } catch {}
+    }
 
     this._connected = false;
     this.buffer = Buffer.alloc(0);
