@@ -571,6 +571,7 @@ export class PBDebugSession extends DebugSession {
           name: 'Globals',
           variablesReference: SCOPE_GLOBALS_REF,
           expensive: false,
+          presentationHint: 'locals',
         },
       ],
     };
@@ -1331,7 +1332,7 @@ export class PBDebugSession extends DebugSession {
       this.transport.send({
         command: PBCommand.BreakPoint,
         value1: BreakPointAction.Clear,
-        value2: fileNum << 16,
+        value2: makeDebuggerLine(fileNum, 0),
       });
       this.log(`  Clear command sent successfully`);
     } catch (err: any) {
