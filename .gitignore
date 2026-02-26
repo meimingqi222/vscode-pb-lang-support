@@ -50,19 +50,15 @@ coverage/
 
 # Test files
 test-results/
-*.test.js
-*.test.js.map
-*.test.ts
-*.test.ts.map
-*.spec.js
-*.spec.js.map
-*.spec.ts
-*.spec.ts.map
 junit.xml
 
 # Test setup files
 setup.js.map
 test/setup.js.map
+
+# Compiled test files (if TypeScript outputs to same folder)
+test/**/*.js
+test/**/*.js.map
 
 # PureBasic test files
 *.pb
