@@ -7,8 +7,9 @@ const net    = require('net');
 const cp     = require('child_process');
 const crypto = require('crypto');
 
+const path = require('path');
 const HEADER_SIZE = 20;
-const EXE_PATH = 'D:/code/vscode-pb/vscode-purebasic/test/samples/debug/test_debug.exe';
+const EXE_PATH = process.argv[2] || path.resolve(process.cwd(), 'test/samples/debug/test_debug.exe');
 
 function parseHeader(buf) {
   if (buf.length < HEADER_SIZE) return null;

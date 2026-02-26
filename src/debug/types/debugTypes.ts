@@ -11,6 +11,8 @@ export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArgum
   stopOnEntry?: boolean;
   /** Enable verbose trace logging from the adapter. Default: false. */
   trace?: boolean;
+  /** Enable full-value trace logs (may include debuggee data). Default: false. */
+  secureTrace?: boolean;
   /** Extra command-line arguments to pass to pbcompiler. */
   compilerArgs?: string[];
   /** Debug transport mode. auto: win32->pipe, macOS/linux->fifo. */

@@ -357,7 +357,7 @@ export class CompilerLauncher {
    * via environment variables.
    */
   launch(executablePath: string, communicationString: string): cp.ChildProcess {
-    this.log(`Launch: ${executablePath}  [comm=${communicationString}]`);
+    this.log(`Launch: ${executablePath}  [comm=${this.sanitizeCommunicationString(communicationString)}]`);
     
     // Check if executable exists and log its stats
     try {
@@ -417,6 +417,19 @@ export class CompilerLauncher {
     });
     
     return proc;
+  }
+
+  private sanitizeCommunicationString(communicationString: string): string {
+    if (!communicationString) return '<empty>';
+    const [mode, ...rest] = communicationString.split(';');
+    const lowerMode = (mode ?? '').toLowerCase();
+    if (lowerMode === 'networkclient') {
+      return 'NetworkClient;<redacted>';
+    }
+    if (lowerMode === 'namedpipes' || lowerMode === 'fifofiles') {
+      return `${mode};<redacted:${rest.length}>`;
+    }
+    return `${mode || 'Unknown'};<redacted>`;
   }
 
   private log(msg: string): void {

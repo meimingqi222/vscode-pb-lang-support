@@ -2,7 +2,8 @@
 const fs = require('fs');
 const cp = require('child_process');
 
-const EXE = 'D:/code/vscode-pb/vscode-purebasic/test/samples/debug/test_debug.exe';
+const path = require('path');
+const EXE = process.argv[2] || path.resolve(process.cwd(), 'test/samples/debug/test_debug.exe');
 
 // List all named pipes
 function listPipes() {

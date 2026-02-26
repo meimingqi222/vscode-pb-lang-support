@@ -66,6 +66,7 @@ export class PBDebugSession extends DebugSession {
   private launcher:  CompilerLauncher | null = null;
   private debugProc: cp.ChildProcess  | null = null;
   private trace = false;
+  private secureTrace = false;
   private is64bit = false;
   private isUnicode = true;
   private procedureRangesCache = new Map<string, ProcedureRange[]>();
@@ -145,7 +146,8 @@ export class PBDebugSession extends DebugSession {
     response: DebugProtocol.LaunchResponse,
     args: LaunchRequestArguments,
   ): Promise<void> {
-    this.trace      = args.trace ?? false;
+    this.trace = args.trace ?? false;
+    this.secureTrace = args.secureTrace ?? false;
     this.launchArgs = args;
     this.pendingBreakpoints.clear(); // Clear any stale breakpoints from previous sessions
     this.firstStopSeen = false;
@@ -224,10 +226,10 @@ export class PBDebugSession extends DebugSession {
       this.transport = null;
       this.communicationString = null;
       this.sendEvent(new OutputEvent(
-        `Launch failed: ${(err as Error).message}\n`, 'stderr',
+        `Launch failed: ${this.safeErrorMessage(err)}\n`, 'stderr',
       ));
       response.success = false;
-      response.message = (err as Error).message;
+      response.message = this.safeErrorMessage(err);
       this.sendResponse(response);
     }
   }
@@ -1075,16 +1077,17 @@ export class PBDebugSession extends DebugSession {
     );
     this.log(`fetchGlobals: got names response, data length=${namesMsg.data.length}`);
     
-    // Debug: print raw names data
-    const namesHex = namesMsg.data.toString('hex');
-    this.log(`fetchGlobals: raw names data (hex): ${namesHex.substring(0, 200)}...`);
+    if (this.secureTrace) {
+      const namesHex = namesMsg.data.toString('hex');
+      this.log(`fetchGlobals: raw names data (hex): ${namesHex.substring(0, 200)}...`);
+    }
     
     // Try to decode first few bytes manually
     const count = namesMsg.data.readUInt32LE(0);
     this.log(`fetchGlobals: name count from first 4 bytes: ${count}`);
     
     const names = parseNames(namesMsg.data);
-    this.log(`fetchGlobals: parsed ${names.length} names: ${JSON.stringify(names)}`);
+    this.log(`fetchGlobals: parsed ${names.length} names`);
     if (names.length === 0) return [];
 
     this.log('fetchGlobals: requesting global values...');
@@ -1093,9 +1096,10 @@ export class PBDebugSession extends DebugSession {
     );
     this.log(`fetchGlobals: got values response, data length=${valsMsg.data.length}, is64bit=${this.is64bit}`);
     
-    // Debug: print first few bytes of values data
-    const hexPreview = valsMsg.data.slice(0, Math.min(32, valsMsg.data.length)).toString('hex');
-    this.log(`fetchGlobals: values data hex (first 32 bytes): ${hexPreview}`);
+    if (this.secureTrace) {
+      const hexPreview = valsMsg.data.slice(0, Math.min(32, valsMsg.data.length)).toString('hex');
+      this.log(`fetchGlobals: values data hex (first 32 bytes): ${hexPreview}`);
+    }
     
     // Globals values format: [1B rawType][value data] per variable, sequential.
     // Use decodePBValue (same decoder as locals) to correctly handle strings, etc.
@@ -1111,7 +1115,7 @@ export class PBDebugSession extends DebugSession {
       if (decoded.bytesRead <= 0 && decoded.typeName !== 'Structure') break;
       offset += decoded.bytesRead;
 
-      this.log(`fetchGlobals:   ${name} (${decoded.typeName}) = ${decoded.value}`);
+      this.log(`fetchGlobals:   ${name} (${decoded.typeName}) = ${this.secureTrace ? decoded.value : '<redacted>'}`);
       result.push({
         name,
         value: decoded.value,
@@ -1341,7 +1345,8 @@ export class PBDebugSession extends DebugSession {
   private normalizePath(filePath: string): string {
     if (!filePath) return '';
     const normalized = path.normalize(filePath);
-    return path.resolve(normalized).toLowerCase();
+    const resolved = path.resolve(normalized);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
   }
 
   // -------------------------------------------------------------------------
@@ -1379,7 +1384,9 @@ export class PBDebugSession extends DebugSession {
           return this.formatQualifiedProcedureName(range.name, range.moduleName);
         }
       }
-    } catch {}
+    } catch (err) {
+      this.log(`inferFrameName failed for ${sourcePath}:${line1} - ${(err as Error).message}`);
+    }
     return '[main]';
   }
 
@@ -1411,7 +1418,18 @@ export class PBDebugSession extends DebugSession {
     const cached = this.procedureRangesCache.get(key);
     if (cached) return cached;
 
-    const content = fs.readFileSync(sourcePath, 'utf8');
+    const workspaceRoot = this.launchArgs?.program
+      ? path.dirname(path.resolve(this.launchArgs.program))
+      : process.cwd();
+    const absoluteSourcePath = path.resolve(sourcePath);
+    const relativeToWorkspace = path.relative(workspaceRoot, absoluteSourcePath);
+    if (relativeToWorkspace.startsWith('..') || path.isAbsolute(relativeToWorkspace)) {
+      this.log(`Skipping procedure range parse outside workspace: ${absoluteSourcePath}`);
+      this.procedureRangesCache.set(key, []);
+      return [];
+    }
+
+    const content = fs.readFileSync(absoluteSourcePath, 'utf8');
     const lines = content.split(/\r?\n/);
     const procRegex = /^\s*Procedure(?:C|CDLL|DLL)?(?:\.[A-Za-z0-9_]+)?\s+([^\s(]+)/i;
     const endProcRegex = /^\s*EndProcedure\b/i;
@@ -1488,6 +1506,19 @@ export class PBDebugSession extends DebugSession {
       try { this.debugProc?.kill(); } catch {}
     }
     this.debugProc = null;
+  }
+
+  private safeErrorMessage(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (this.trace || this.secureTrace) {
+      return raw;
+    }
+
+    // Keep common user-actionable diagnostics while avoiding path/env leakage.
+    if (/not found|enoent|invalid|timeout|failed/i.test(raw)) {
+      return raw;
+    }
+    return 'Launch failed. Enable trace for details.';
   }
 
   private log(msg: string): void {

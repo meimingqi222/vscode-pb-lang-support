@@ -26,6 +26,7 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
   private textBuffer = '';
   private handshakeComplete = false;
   private _connected = false;
+  private connectionHandlerRegistered = false;
 
   constructor(host = '127.0.0.1', port = 0, password?: string) {
     super();
@@ -40,6 +41,11 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
   }
 
   async listen(): Promise<void> {
+    if (!this.connectionHandlerRegistered) {
+      this.server.on('connection', (socket) => this.handleConnection(socket));
+      this.connectionHandlerRegistered = true;
+    }
+
     await new Promise<void>((resolve, reject) => {
       this.server.once('error', reject);
       this.server.listen(this.requestedPort, this.host, () => {
@@ -53,45 +59,45 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
         resolve();
       });
     });
+  }
 
-    this.server.on('connection', (socket) => {
-      const remoteAddr = `${socket.remoteAddress}:${socket.remotePort}`;
-      this.log(`Client connected from ${remoteAddr}`);
-      
-      // Keep one debuggee connection at a time.
-      if (this.socket) {
-        this.log(`Rejecting connection, already have a client`);
-        socket.destroy();
-        return;
+  private handleConnection(socket: net.Socket): void {
+    const remoteAddr = `${socket.remoteAddress}:${socket.remotePort}`;
+    this.log(`Client connected from ${remoteAddr}`);
+
+    // Keep one debuggee connection at a time.
+    if (this.socket) {
+      this.log(`Rejecting connection, already have a client`);
+      socket.destroy();
+      return;
+    }
+
+    this.socket = socket;
+
+    socket.on('data', (chunk: Buffer) => {
+      if (!this.handshakeComplete) {
+        this.handleTextHandshake(chunk);
+      } else {
+        this.handleBinaryData(chunk);
       }
+    });
 
-      this.socket = socket;
+    socket.on('error', (err) => {
+      this.log(`Socket error: ${err.message}`);
+      this.emit('error', err);
+    });
 
-      socket.on('data', (chunk: Buffer) => {
-        if (!this.handshakeComplete) {
-          this.handleTextHandshake(chunk);
-        } else {
-          this.handleBinaryData(chunk);
-        }
-      });
+    socket.on('end', () => {
+      this.log(`Client disconnected (end)`);
+      this._connected = false;
+      this.emit('end');
+    });
 
-      socket.on('error', (err) => {
-        this.log(`Socket error: ${err.message}`);
-        this.emit('error', err);
-      });
-
-      socket.on('end', () => {
-        this.log(`Client disconnected (end)`);
-        this._connected = false;
-        this.emit('end');
-      });
-
-      socket.on('close', (hadError) => {
-        this.log(`Socket closed (hadError=${hadError})`);
-        this._connected = false;
-        this.socket = null;
-        this.handshakeComplete = false;
-      });
+    socket.on('close', (hadError) => {
+      this.log(`Socket closed (hadError=${hadError})`);
+      this._connected = false;
+      this.socket = null;
+      this.handshakeComplete = false;
     });
   }
 
@@ -130,7 +136,7 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       if (this.password) {
         response = `${version};${this.password}\n`;
       }
-      this.log(`Sending handshake response: ${JSON.stringify(response)}`);
+      this.log(`Sending handshake response: ${this.password ? '<version>;<redacted>' : '<version>'}`);
       this.socket?.write(Buffer.from(response, 'utf8'));
       
       // Mark handshake complete
@@ -193,6 +199,7 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
     try { this.server.close(); } catch {}
     this.binaryBuffer.clear();
     this.textBuffer = '';
+    this.actualPort = null;
   }
 
   private log(msg: string): void {

@@ -234,7 +234,7 @@ export function parseValues(
           }
           break;
         default:
-          return result;
+          continue;
       }
 
       result.push({ name, typeId, typeName: PB_TYPE_NAMES[typeId] ?? `Type${typeId}`, value });
