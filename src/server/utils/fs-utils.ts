@@ -86,8 +86,11 @@ export function resolveIncludePath(
     }
   }
 
-  // Relative to current document directory - always allowed
-  candList.push(path.resolve(fromDir, includeRelPath));
+  // Relative to current document directory - validate to prevent traversal
+  const relativeResolved = path.resolve(fromDir, includeRelPath);
+  if (isPathAllowed(relativeResolved, allowedRoots)) {
+    candList.push(relativeResolved);
+  }
 
   // As-is relative to CWD (rare in LSP), keep last - only if in allowed roots
   const cwdResolved = path.resolve(includeRelPath);

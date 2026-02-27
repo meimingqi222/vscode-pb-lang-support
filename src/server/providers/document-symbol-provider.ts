@@ -40,10 +40,8 @@ export function handleDocumentSymbol(
         const moduleMatch = trimmedLine.match(/^Module\s+(\w+)\b/i);
         if (moduleMatch) {
             const name = moduleMatch[1];
-            // 使用正则匹配的索引，而不是indexOf
-            const nameStart = moduleMatch.index !== undefined
-                ? moduleMatch.index + 'Module '.length
-                : Math.max(0, line.indexOf(name));
+            // 使用原始行的 indexOf 来获取正确位置（考虑缩进）
+            const nameStart = Math.max(0, line.indexOf(name));
             const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },

@@ -33,6 +33,10 @@ export function activate(context: vscode.ExtensionContext) {
             }
         };
 
+        // Create file watcher first, before using it in clientOptions
+        fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pb,pbi,pbp}');
+        context.subscriptions.push(fileWatcher);
+
         const clientOptions: LanguageClientOptions = {
             documentSelector: [
                 { scheme: 'file', language: 'purebasic' }
@@ -42,10 +46,6 @@ export function activate(context: vscode.ExtensionContext) {
                 fileEvents: fileWatcher
             }
         };
-
-        // Create file watcher and store reference for cleanup
-        fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pb,pbi,pbp}');
-        context.subscriptions.push(fileWatcher);
 
         client = new LanguageClient(
             'purebasic',
@@ -183,11 +183,8 @@ function formatBytes(bytes: number): string {
 }
 
 export function deactivate(): Thenable<void> | undefined {
-    // Dispose file watcher
-    if (fileWatcher) {
-        fileWatcher.dispose();
-        fileWatcher = undefined as any;
-    }
+    // fileWatcher is disposed automatically via context.subscriptions
+    // No need to manually dispose here
 
     if (!client) {
         return undefined;

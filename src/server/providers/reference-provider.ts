@@ -332,8 +332,8 @@ function findReferencesInDocument(
             }
         }
 
-        // 查找使用/引用
-        const wordRegex = new RegExp(`\\b${word}\\b`, 'gi');
+        // 查找使用/引用 - 转义 word 防止正则注入
+        const wordRegex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
         let match;
         while ((match = wordRegex.exec(line)) !== null) {
             // 跳过注释中的匹配

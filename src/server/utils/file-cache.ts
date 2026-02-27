@@ -13,7 +13,7 @@ const fileCache = new Map<string, CacheEntry>();
  * 清理最旧的缓存条目
  */
 function evictOldestIfNeeded(): void {
-  if (fileCache.size <= MAX_CACHE_SIZE) {
+  if (fileCache.size < MAX_CACHE_SIZE) {
     return;
   }
 
