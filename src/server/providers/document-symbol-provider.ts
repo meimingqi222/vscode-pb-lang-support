@@ -234,6 +234,7 @@ export function handleDocumentSymbol(
         }
 
         // 常量定义
+        // Use parsePureBasicConstantDefinition to properly exclude inline comments
         const parsedConstant = parsePureBasicConstantDefinition(trimmedLine);
         if (parsedConstant) {
             const name = parsedConstant.name;
@@ -363,6 +364,10 @@ function updateSymbolRanges(symbols: DocumentSymbol[], lines: string[]) {
             updateSymbolEnd(symbol, lines, /^EndModule\b/i);
         } else if (symbol.kind === SymbolKind.Struct) {
             updateSymbolEnd(symbol, lines, /^EndStructure\b/i);
+        } else if (symbol.kind === SymbolKind.Interface) {
+            updateSymbolEnd(symbol, lines, /^EndInterface\b/i);
+        } else if (symbol.kind === SymbolKind.Enum) {
+            updateSymbolEnd(symbol, lines, /^EndEnumeration\b/i);
         } else if (symbol.kind === SymbolKind.Function && symbol.detail !== 'Declare') {
             updateSymbolEnd(symbol, lines, /^EndProcedure\b/i);
         }

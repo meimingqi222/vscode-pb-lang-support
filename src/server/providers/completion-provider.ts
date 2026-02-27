@@ -581,7 +581,7 @@ function getTriggerContext(linePrefix: string): {
     const moduleConstPrefix = moduleConstMatch ? moduleConstMatch[2] : '';
 
     // 检查是否在常量上下文：#Name...
-    const constMatch = linePrefix.match(/#([a-zA-Z0-9_$.@]*)$/);
+    const constMatch = linePrefix.match(/#([a-zA-Z_][a-zA-Z0-9_$.@]*)$/);
     const isConstantContext = !!constMatch && !isAfterModuleOperator; // 非模块的 #
     const constPrefix = constMatch ? constMatch[1] : '';
 

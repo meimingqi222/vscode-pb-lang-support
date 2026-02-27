@@ -84,6 +84,9 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       if (!this.handshakeComplete && this.textBuffer.length > 0) {
         this.log('Handshake timeout - assuming Windows direct binary mode');
         this.skipHandshakeAndProcessBinary();
+      } else if (!this.handshakeComplete) {
+        this.log('Handshake timeout - no data received, emitting error');
+        this.emit('error', new Error('Handshake timeout: no data received from debuggee'));
       }
     }, this.HANDSHAKE_TIMEOUT_MS);
 

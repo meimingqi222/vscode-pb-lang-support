@@ -395,13 +395,16 @@ function findModuleSymbolReferences(
     includeDeclaration: boolean
 ): Location[] {
     const refs: Location[] = [];
+    const escapedModuleName = escapeRegExp(moduleName);
+    const escapedIdent = escapeRegExp(ident);
+
     for (const doc of searchDocs.values()) {
         const text = doc.getText();
         const lines = text.split('\n');
         for (let i = 0; i < lines.length; i++) {
             const raw = lines[i];
             // Module::ident 或 Module::#ident
-            const re = new RegExp(`\\b${moduleName}::#?${ident}\\b`, 'g');
+            const re = new RegExp(`\\b${escapedModuleName}::#?${escapedIdent}\\b`, 'g');
             let m: RegExpExecArray | null;
             while ((m = re.exec(raw)) !== null) {
                 // 跳过注释/字符串
@@ -422,9 +425,9 @@ function findModuleSymbolReferences(
                 continue;
             }
             const defMatchers = [
-                new RegExp(`^Structure\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Interface\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i')
+                new RegExp(`^Structure\\s+(${escapedIdent})\\b`, 'i'),
+                new RegExp(`^Interface\\s+(${escapedIdent})\\b`, 'i'),
+                new RegExp(`^Enumeration\\s+(${escapedIdent})\\b`, 'i')
             ];
             for (const r of defMatchers) {
                 const mm = trimmed.match(r);
@@ -442,6 +445,11 @@ function findModuleSymbolReferences(
 function normalizeConstantName(name: string): string {
     return name.replace(/[.$@]+$/, '').toLowerCase();
 }
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 
 /**
  * 收集搜索文档：当前 + 打开 + 递归包含

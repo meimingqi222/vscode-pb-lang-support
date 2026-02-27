@@ -282,8 +282,8 @@
               },
               "transport": {
                 "type": "string",
-                "enum": ["auto", "pipe", "network", "native"],
-                "description": "Debugger transport mode. auto = Windows uses pipe, Linux/macOS uses network.",
+                "enum": ["auto", "pipe", "network", "fifo", "native"],
+                "description": "Debugger transport mode. auto = Windows uses pipe, Linux/macOS uses fifo. fifo = named pipes (Linux/macOS only).",
                 "default": "auto"
               },
               "debugHost": {
