@@ -175,7 +175,7 @@ function findModuleFunctionReferences(
             const line = lines[i];
 
             // 查找模块调用 Module::Function
-            const moduleCallRegex = new RegExp(`\\b${moduleName}::${functionName}\\b`, 'gi');
+            const moduleCallRegex = new RegExp(`\\b${escapeRegExp(moduleName)}::${escapeRegExp(functionName)}\\b`, 'gi');
             let match;
             while ((match = moduleCallRegex.exec(line)) !== null) {
                 // 跳过注释中的匹配
@@ -305,7 +305,9 @@ function findReferencesInDocument(
             // 查找常量定义
             const constMatch = parsePureBasicConstantDefinition(trimmedLine) || parsePureBasicConstantDeclaration(trimmedLine);
             if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
-                const startChar = line.indexOf('#' + constMatch.name) + 1;
+                const constIndex = line.indexOf('#' + constMatch.name);
+                if (constIndex === -1) continue;
+                const startChar = constIndex + 1;
                 references.push({
                     uri: document.uri,
                     range: {

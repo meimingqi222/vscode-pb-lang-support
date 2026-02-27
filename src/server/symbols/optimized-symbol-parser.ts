@@ -57,35 +57,7 @@ export class OptimizedSymbolParser {
         return result;
     }
 
-    /**
-     * 增量更新文档符号
-     */
-    async updateDocumentSymbolsIncrementally(
-        uri: string,
-        newText: string,
-        oldText: string
-    ): Promise<ParsedDocument> {
-        const existingSymbols = symbolCache.getSymbols(uri);
 
-        // 简单的增量解析 - 直接重新解析
-        const symbols = this.parseBasicSymbols(newText);
-
-        const result: ParsedDocument = {
-            symbols,
-            metrics: {
-                parseTime: performance.now(),
-                symbolCount: symbols.length,
-                cacheHits: existingSymbols ? 1 : 0,
-                memoryUsage: JSON.stringify(symbols).length
-            },
-            strategy: 'incremental'
-        };
-
-        // 更新缓存
-        symbolCache.setSymbols(uri, result.symbols);
-
-        return result;
-    }
 
     /**
      * 批量解析多个文档（优化性能）
@@ -171,16 +143,7 @@ export class OptimizedSymbolParser {
         };
     }
 
-    private async parseIncrementally(uri: string, text: string, preAnalysis: any): Promise<ParsedDocument> {
-        const oldText = this.lastParsedVersions.get(uri) || '';
-        this.lastParsedVersions.set(uri, text);
 
-        if (oldText && oldText !== text) {
-            return await this.updateDocumentSymbolsIncrementally(uri, text, oldText);
-        } else {
-            return await this.parseFull(uri, text, preAnalysis);
-        }
-    }
 
     private async parseMinimalSymbols(uri: string, text: string, preAnalysis: any): Promise<ParsedDocument> {
         // 最小化解析 - 只解析关键符号

@@ -10,6 +10,7 @@ import {
     Range
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { ProjectManager } from '../managers/project-manager';
 import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath } from '../utils/fs-utils';
 import { getWorkspaceFiles } from '../indexer/workspace-index';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
@@ -22,7 +23,7 @@ export function handleDefinition(
     params: DefinitionParams,
     document: TextDocument,
     allDocuments: Map<string, TextDocument>,
-    projectManager: any
+    projectManager: ProjectManager
 ): Location[] {
     const text = document.getText();
     const position = params.position;
@@ -371,7 +372,9 @@ function findDefinitionsInDocument(document: TextDocument, word: string): Locati
         // 查找常量定义
         const constMatch = parsePureBasicConstantDefinition(line);
         if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
-            const startChar = lines[i].indexOf('#') + 1;
+            const hashIndex = lines[i].indexOf('#');
+            if (hashIndex === -1) continue;
+            const startChar = hashIndex + 1;
             definitions.push({
                 uri: document.uri,
                 range: {

@@ -78,6 +78,8 @@ export function analyzeScopesAndVariables(text: string, currentLine: number): {
 
         // 解析变量定义
         const currentScope = scopeStack[scopeStack.length - 1];
+        if (!currentScope) continue; // 安全检查
+
         const variablesInLine = parseVariablesInLine(line, i, currentScope);
         variables.push(...variablesInLine);
 

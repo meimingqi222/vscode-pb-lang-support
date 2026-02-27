@@ -40,7 +40,10 @@ export function handleDocumentSymbol(
         const moduleMatch = trimmedLine.match(/^Module\s+(\w+)\b/i);
         if (moduleMatch) {
             const name = moduleMatch[1];
-            const nameStart = Math.max(0, line.indexOf(name));
+            // 使用正则匹配的索引，而不是indexOf
+            const nameStart = moduleMatch.index !== undefined
+                ? moduleMatch.index + 'Module '.length
+                : Math.max(0, line.indexOf(name));
             const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
                 start: { line: i, character: 0 },
@@ -387,4 +390,7 @@ function updateSymbolEnd(symbol: DocumentSymbol, lines: string[], endPattern: Re
             return;
         }
     }
+    // 如果找不到结束标记，默认到文件末尾或起始行
+    const endLine = Math.max(startLine, lines.length - 1);
+    symbol.range.end = { line: endLine, character: lines[endLine]?.length || 0 };
 }

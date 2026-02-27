@@ -186,36 +186,6 @@ class EnhancedSymbolCache {
     }
 
     /**
-     * 增量更新符号
-     */
-    updateSymbols(uri: string, newSymbols: PureBasicSymbol[], removedSymbols: PureBasicSymbol[] = []): void {
-        const entry = this.cache.get(uri);
-        if (!entry) {
-            this.setSymbols(uri, newSymbols);
-            return;
-        }
-
-        // 移除指定的符号
-        const updatedSymbols = entry.symbols.filter(symbol =>
-            !removedSymbols.some(removed =>
-                removed.name === symbol.name && removed.kind === symbol.kind
-            )
-        );
-
-        // 添加新符号（去重）
-        for (const newSymbol of newSymbols) {
-            const exists = updatedSymbols.some(existing =>
-                existing.name === newSymbol.name && existing.kind === newSymbol.kind
-            );
-            if (!exists) {
-                updatedSymbols.push(newSymbol);
-            }
-        }
-
-        this.setSymbols(uri, updatedSymbols);
-    }
-
-    /**
      * 批量清除多个文档的符号
      */
     clearMultipleSymbols(uris: string[]): void {
@@ -281,9 +251,9 @@ class EnhancedSymbolCache {
     private recordAccess(uri: string): void {
         this.accessTimes.push({ uri, time: Date.now() });
 
-        // 保留最近1000次访问记录
-        if (this.accessTimes.length > 1000) {
-            this.accessTimes = this.accessTimes.slice(-1000);
+        // 保留最近1000次访问记录 - 使用shift避免创建新数组
+        while (this.accessTimes.length > 1000) {
+            this.accessTimes.shift();
         }
     }
 

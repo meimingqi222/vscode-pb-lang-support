@@ -26,7 +26,7 @@ export function handleHover(
     const text = document.getText();
     const lines = text.split('\n');
 
-    if (position.line >= lines.length) {
+    if (position.line < 0 || position.line >= lines.length) {
         return null;
     }
 
