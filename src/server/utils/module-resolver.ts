@@ -13,6 +13,10 @@ import { generateHash } from './hash-utils';
 import { getErrorHandler } from './error-handler';
 import { parsePureBasicConstantDeclaration } from './constants';
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export interface ModuleFunction {
     name: string;
     returnType: string;
@@ -212,6 +216,7 @@ export function getModuleExports(
  * 从文档文本中提取指定模块的函数
  */
 function extractModuleFunctions(text: string, moduleName: string): ModuleFunction[] {
+    const escapedModuleName = escapeRegExp(moduleName);
     const functions: ModuleFunction[] = [];
     const lines = text.split('\n');
 
@@ -222,14 +227,14 @@ function extractModuleFunctions(text: string, moduleName: string): ModuleFunctio
         const line = lines[i].trim();
 
         // 检查DeclareModule开始
-        const declareModuleMatch = line.match(new RegExp(`^DeclareModule\\s+${moduleName}\\b`, 'i'));
+        const declareModuleMatch = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
         if (declareModuleMatch) {
             inDeclareModule = true;
             continue;
         }
 
         // 检查Module开始
-        const moduleStartMatch = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+        const moduleStartMatch = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
         if (moduleStartMatch) {
             inModule = true;
             continue;
@@ -310,6 +315,7 @@ function extractModuleExports(text: string, moduleName: string): {
     interfaces?: Array<{name: string}>;
     enumerations?: Array<{name: string}>;
 } {
+    const escapedModuleName = escapeRegExp(moduleName);
     const functions: ModuleFunction[] = [];
     const constants: Array<{name: string, value?: string}> = [];
     const structures: Array<{name: string}> = [];
@@ -325,11 +331,11 @@ function extractModuleExports(text: string, moduleName: string): {
         const line = raw.trim();
 
         // 声明和实现范围
-        const declStart = line.match(new RegExp(`^DeclareModule\\s+${moduleName}\\b`, 'i'));
+        const declStart = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
         if (declStart) { inDeclareModule = true; continue; }
         if (line.match(/^EndDeclareModule\b/i)) { inDeclareModule = false; continue; }
 
-        const modStart = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+        const modStart = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
         if (modStart) { inModule = true; continue; }
         if (line.match(/^EndModule\b/i)) { inModule = false; continue; }
 

@@ -167,6 +167,8 @@ function findModuleFunctionDefinition(
     functionName: string,
     searchDocs: Map<string, TextDocument>
 ): Location[] {
+    const escapedModuleName = escapeRegExp(moduleName);
+    const escapedFunctionName = escapeRegExp(functionName);
     const definitions: Location[] = [];
 
     for (const doc of searchDocs.values()) {
@@ -179,7 +181,7 @@ function findModuleFunctionDefinition(
             const line = lines[i].trim();
 
             // 检查模块开始
-            const moduleMatch = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+            const moduleMatch = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
             if (moduleMatch) {
                 inModule = true;
                 moduleStartLine = i;
@@ -194,7 +196,7 @@ function findModuleFunctionDefinition(
 
             // 在模块内查找函数定义
             if (inModule) {
-                const procMatch = line.match(new RegExp(`^Procedure(?:C|DLL|CDLL)?(?:\\.\\w+)?\\s+(${functionName})\\s*\\(`, 'i'));
+                const procMatch = line.match(new RegExp(`^Procedure(?:C|DLL|CDLL)?(?:\\.\\w+)?\\s+(${escapedFunctionName})\\s*\\(`, 'i'));
                 if (procMatch) {
                     const startChar = lines[i].indexOf(procMatch[1]);
                     definitions.push({
@@ -552,6 +554,8 @@ function findStructureMemberDefinition(
     memberName: string,
     searchDocs: Map<string, TextDocument>
 ): Location[] {
+    const escapedTypeName = escapeRegExp(typeName);
+    const escapedMemberName = escapeRegExp(memberName);
     const matches: Location[] = [];
     for (const doc of searchDocs.values()) {
         const text = doc.getText();
@@ -560,10 +564,10 @@ function findStructureMemberDefinition(
         for (let i = 0; i < lines.length; i++) {
             const raw = lines[i];
             const line = raw.trim();
-            if (line.match(new RegExp(`^Structure\\s+${typeName}\\b`, 'i'))) { inStruct = true; continue; }
+            if (line.match(new RegExp(`^Structure\\s+${escapedTypeName}\\b`, 'i'))) { inStruct = true; continue; }
             if (inStruct && line.match(/^EndStructure\b/i)) { inStruct = false; continue; }
             if (inStruct) {
-                const mm = line.match(new RegExp(`^(?:\\*?)(${memberName})\\b`));
+                const mm = line.match(new RegExp(`^(?:\\*?)(${escapedMemberName})\\b`));
                 if (mm) {
                     const startChar = raw.indexOf(mm[1]);
                     matches.push({

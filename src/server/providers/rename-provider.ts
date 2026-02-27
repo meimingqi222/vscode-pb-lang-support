@@ -239,6 +239,7 @@ function isUserDefinedSymbol(
     documentCache: Map<string, TextDocument>,
     position: Position
 ): boolean {
+    const escapedWord = escapeRegExp(word);
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
     for (const doc of searchDocuments) {
@@ -249,13 +250,13 @@ function isUserDefinedSymbol(
             const line = lines[i].trim();
 
             // 检查过程定义
-            const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${word})\\s*\\(`, 'i'));
+            const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${escapedWord})\\s*\\(`, 'i'));
             if (procMatch) {
                 return true;
             }
 
             // 检查变量定义
-            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${word})(?:\\.\\w+)?`, 'i'));
+            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${escapedWord})(?:\\.\\w+)?`, 'i'));
             if (varMatch) {
                 return true;
             }
@@ -267,13 +268,13 @@ function isUserDefinedSymbol(
             }
 
             // 检查结构体定义
-            const structMatch = line.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
+            const structMatch = line.match(new RegExp(`^Structure\\s+(${escapedWord})\\b`, 'i'));
             if (structMatch) {
                 return true;
             }
 
             // 检查模块定义
-            const moduleMatch = line.match(new RegExp(`^Module\\s+(${word})\\b`, 'i'));
+            const moduleMatch = line.match(new RegExp(`^Module\\s+(${escapedWord})\\b`, 'i'));
             if (moduleMatch) {
                 return true;
             }
@@ -560,7 +561,8 @@ function getVariableStructureAt(document: TextDocument, lineNumber: number, varN
 }
 
 function getMemberRange(line: string, character: number, memberName: string, lineNo: number): Range | null {
-    const re = new RegExp(`\\\\(${memberName})\\b`, 'g');
+    const escapedMemberName = escapeRegExp(memberName);
+    const re = new RegExp(`\\\\(${escapedMemberName})\\b`, 'g');
     let m: RegExpExecArray | null;
     while ((m = re.exec(line)) !== null) {
         const start = m.index + 1; // skip '\\'
@@ -585,6 +587,8 @@ function handleStructMemberRename(
     document: TextDocument,
     documentCache: Map<string, TextDocument>
 ): WorkspaceEdit | null {
+    const escapedStructName = escapeRegExp(structName);
+    const escapedMemberName = escapeRegExp(memberName);
     const changes: { [uri: string]: TextEdit[] } = {};
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
@@ -615,10 +619,10 @@ function handleStructMemberRename(
         for (let i = 0; i < lines.length; i++) {
             const raw = lines[i];
             const line = raw.trim();
-            if (line.match(new RegExp(`^Structure\\s+${structName}\\b`, 'i'))) { inStruct = true; continue; }
+            if (line.match(new RegExp(`^Structure\\s+${escapedStructName}\\b`, 'i'))) { inStruct = true; continue; }
             if (inStruct && line.match(/^EndStructure\b/i)) { inStruct = false; continue; }
             if (inStruct) {
-                const mm = line.match(new RegExp(`^(?:\\*?)(${memberName})(?:\\.|\\s|$)`));
+                const mm = line.match(new RegExp(`^(?:\\*?)(${escapedMemberName})(?:\\.|\\s|$)`));
                 if (mm) {
                     const startChar = raw.indexOf(mm[1]);
                     edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + memberName.length } }, newText: newName });
@@ -632,7 +636,7 @@ function handleStructMemberRename(
             for (let i = 0; i < lines.length; i++) {
                 const raw = lines[i];
                 for (const v of vars) {
-                    const re = new RegExp(`\\b\\*?${v}(?:\\([^)]*\\))?\\\\${memberName}\\b`, 'g');
+                    const re = new RegExp(`\\b\\*?${escapeRegExp(v)}(?:\\([^)]*\\))?\\\\${escapedMemberName}\\b`, 'g');
                     let m: RegExpExecArray | null;
                     while ((m = re.exec(raw)) !== null) {
                         // 计算成员名起始：在匹配片段内找到第一个反斜杠位置

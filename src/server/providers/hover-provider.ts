@@ -14,6 +14,10 @@ import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { getModuleExports } from '../utils/module-resolver';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * 处理悬停请求
  */
@@ -197,6 +201,8 @@ function getModuleFunctionHover(
     document: TextDocument,
     documentCache: Map<string, TextDocument>
 ): Hover | null {
+    const escapedModuleName = escapeRegExp(moduleName);
+    const escapedFunctionName = escapeRegExp(functionName);
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
     for (const doc of searchDocuments) {
@@ -208,7 +214,7 @@ function getModuleFunctionHover(
             const line = lines[i].trim();
 
             // 检查模块开始
-            const moduleStartMatch = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+            const moduleStartMatch = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
             if (moduleStartMatch) {
                 inModule = true;
                 continue;
@@ -222,7 +228,7 @@ function getModuleFunctionHover(
 
             // 在模块内查找函数定义
             if (inModule) {
-                const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${functionName})\\s*\\(([^)]*)\\)`, 'i'));
+                const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${escapedFunctionName})\\s*\\(([^)]*)\\)`, 'i'));
                 if (procMatch) {
                     const returnType = procMatch[1] || 'void';
                     const params = procMatch[3] || '';
@@ -270,6 +276,7 @@ function findSymbolInfo(
     document: TextDocument,
     documentCache: Map<string, TextDocument>
 ): any | null {
+    const escapedWord = escapeRegExp(word);
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
     for (const doc of searchDocuments) {
@@ -280,7 +287,7 @@ function findSymbolInfo(
             const line = lines[i].trim();
 
             // 查找过程定义
-            const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${word})\\s*\\(([^)]*)\\)`, 'i'));
+            const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${escapedWord})\\s*\\(([^)]*)\\)`, 'i'));
             if (procMatch) {
                 const returnType = procMatch[1] || 'void';
                 const params = procMatch[3] || '';
@@ -308,7 +315,7 @@ function findSymbolInfo(
             }
 
             // 查找变量定义
-            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${word})(?:\\.(\\w+))?`, 'i'));
+            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${escapedWord})(?:\\.(\\w+))?`, 'i'));
             if (varMatch) {
                 const scope = varMatch[1];
                 const varName = varMatch[2];
@@ -337,7 +344,7 @@ function findSymbolInfo(
             }
 
             // 查找结构体定义
-            const structMatch = line.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
+            const structMatch = line.match(new RegExp(`^Structure\\s+(${escapedWord})\\b`, 'i'));
             if (structMatch) {
                 return {
                     type: 'structure',
@@ -347,7 +354,7 @@ function findSymbolInfo(
             }
 
             // 查找接口定义
-            const ifaceMatch = line.match(new RegExp(`^Interface\\s+(${word})\\b`, 'i'));
+            const ifaceMatch = line.match(new RegExp(`^Interface\\s+(${escapedWord})\\b`, 'i'));
             if (ifaceMatch) {
                 return {
                     type: 'interface',
@@ -357,7 +364,7 @@ function findSymbolInfo(
             }
 
             // 查找枚举定义
-            const enumMatch = line.match(new RegExp(`^Enumeration\\s+(${word})\\b`, 'i'));
+            const enumMatch = line.match(new RegExp(`^Enumeration\\s+(${escapedWord})\\b`, 'i'));
             if (enumMatch) {
                 return {
                     type: 'enumeration',

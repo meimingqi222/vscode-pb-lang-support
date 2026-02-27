@@ -13,6 +13,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getModuleFunctionCompletions as getModuleFunctions } from '../utils/module-resolver';
 import { getActiveUsedModules } from '../utils/scope-manager';
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * 处理签名帮助请求
  */
@@ -166,6 +170,7 @@ function searchFunctionInDocument(
     documentation: string;
     parameters: ParameterInformation[];
 } | null {
+    const escapedFunctionName = escapeRegExp(functionName);
     const text = document.getText();
     const lines = text.split('\n');
 
@@ -173,7 +178,7 @@ function searchFunctionInDocument(
         const line = lines[i].trim();
 
         // 匹配过程定义
-        const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${functionName})\\s*\\(([^)]*)\\)`, 'i'));
+        const procMatch = line.match(new RegExp(`^Procedure(?:\\.(\\w+))?\\s+(${escapedFunctionName})\\s*\\(([^)]*)\\)`, 'i'));
         if (procMatch) {
             const returnType = procMatch[1] || '';
             const name = procMatch[2];
