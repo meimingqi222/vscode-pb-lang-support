@@ -42,7 +42,9 @@ function isPathAllowed(resolvedPath: string, allowedRoots: string[]): boolean {
   const normalizedPath = path.normalize(resolvedPath);
   for (const root of allowedRoots) {
     const normalizedRoot = path.normalize(root);
-    if (normalizedPath.startsWith(normalizedRoot)) {
+    // Check exact match or directory boundary to prevent false positives
+    // e.g., /home/user/project should NOT match /home/user/project-malicious
+    if (normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + path.sep)) {
       return true;
     }
   }
