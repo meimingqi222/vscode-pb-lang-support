@@ -5,10 +5,11 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { resolveIncludePath, readFileIfExistsSync, normalizeDirPath } from './fs-utils';
 import { readFileCached } from './file-cache';
 import { generateHash } from './hash-utils';
-import { withErrorHandling, getErrorHandler } from './error-handler';
+import { getErrorHandler } from './error-handler';
 import { parsePureBasicConstantDeclaration } from './constants';
 
 export interface ModuleFunction {
@@ -32,9 +33,9 @@ export interface ModuleInfo {
 /**
  * 解析文档中的IncludeFile引用
  */
-const includeCache = new WeakMap<any, { hash: string; files: string[] }>();
+const includeCache = new WeakMap<TextDocument, { hash: string; files: string[] }>();
 
-export function parseIncludeFiles(document: any, documentCache: Map<string, any>): string[] {
+export function parseIncludeFiles(document: TextDocument, documentCache: Map<string, TextDocument>): string[] {
     const includeFiles: string[] = [];
     const text = document.getText();
     const lines = text.split('\n');
@@ -105,8 +106,8 @@ function readDocumentFromPath(filePath: string): string | null {
  */
 export function getModuleFunctionCompletions(
     moduleName: string,
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): ModuleFunction[] {
     const functions: ModuleFunction[] = [];
 
@@ -138,35 +139,23 @@ export function getModuleFunctionCompletions(
         functions.push(...moduleFunctions);
     }
 
-    // 去重（根据函数名）
-    const uniqueFunctions = functions.reduce((acc, current) => {
-        const existing = acc.find(f => f.name === current.name);
-        if (!existing) {
-            acc.push(current);
+    // 去重（根据函数名）- 使用 Map 实现 O(n) 复杂度
+    const uniqueFunctionsMap = new Map<string, ModuleFunction>();
+    for (const func of functions) {
+        if (!uniqueFunctionsMap.has(func.name)) {
+            uniqueFunctionsMap.set(func.name, func);
         }
-        return acc;
-    }, [] as ModuleFunction[]);
-
-    return uniqueFunctions;
-}
-
-// 错误处理包装器
-const safeGetModuleFunctionCompletions = (moduleName: string, document: any, documentCache: Map<string, any>) => {
-    try {
-        return getModuleFunctionCompletions(moduleName, document, documentCache);
-    } catch (error) {
-        console.error('Module function completion error:', error);
-        return [];
     }
-};
+    return Array.from(uniqueFunctionsMap.values());
+}
 
 /**
  * 获取模块导出（函数/常量/结构）
  */
 export function getModuleExports(
     moduleName: string,
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): ModuleInfo {
     const info: ModuleInfo = {
         name: moduleName,
@@ -422,8 +411,8 @@ function extractModuleExports(text: string, moduleName: string): {
  * 获取所有可用的模块
  */
 export function getAvailableModules(
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): string[] {
     const modules: Set<string> = new Set();
     const searchDocuments: Array<{text: string}> = [];

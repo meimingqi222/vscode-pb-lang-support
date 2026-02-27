@@ -141,13 +141,17 @@ connection.onInitialized(async () => {
                 const folders = await connection.workspace.getWorkspaceFolders();
                 const uris = (folders || []).map(f => f.uri);
                 setWorkspaceRoots(uris);
-            } catch {}
+            } catch (error) {
+                connection.console.error(`Failed to update workspace folders: ${error}`);
+            }
         });
         // 初始化工作区根
         connection.workspace.getWorkspaceFolders().then(folders => {
             const uris = (folders || []).map(f => f.uri);
             setWorkspaceRoots(uris);
-        }).catch(() => {});
+        }).catch(error => {
+            connection.console.error(`Failed to initialize workspace folders: ${error}`);
+        });
     }
 });
 

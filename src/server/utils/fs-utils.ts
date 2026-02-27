@@ -35,32 +35,65 @@ export function readFileIfExistsSync(filePath: string): string | null {
   return null;
 }
 
+/**
+ * Validates that a resolved path doesn't escape outside allowed directories
+ */
+function isPathAllowed(resolvedPath: string, allowedRoots: string[]): boolean {
+  const normalizedPath = path.normalize(resolvedPath);
+  for (const root of allowedRoots) {
+    const normalizedRoot = path.normalize(root);
+    if (normalizedPath.startsWith(normalizedRoot)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function resolveIncludePath(
   fromDocumentUri: string,
   includeRelPath: string,
-  includeDirs: string[] = []
+  includeDirs: string[] = [],
+  workspaceRoot?: string
 ): string | null {
   const fromFs = uriToFsPath(fromDocumentUri);
   const fromDir = path.dirname(fromFs);
 
+  // Build allowed root directories for path traversal protection
+  const allowedRoots: string[] = [fromDir];
+  if (workspaceRoot) {
+    allowedRoots.push(workspaceRoot);
+  }
+  for (const dir of includeDirs) {
+    if (dir) allowedRoots.push(path.normalize(dir));
+  }
+
   const candList: string[] = [];
 
-  // Absolute include provided
+  // Absolute include provided - validate against allowed roots
   if (path.isAbsolute(includeRelPath)) {
-    candList.push(includeRelPath);
+    const resolved = path.resolve(includeRelPath);
+    if (isPathAllowed(resolved, allowedRoots)) {
+      candList.push(resolved);
+    }
   }
 
   // Search using provided IncludePath directories (most recent first)
   for (const dir of includeDirs) {
     if (!dir) continue;
-    candList.push(path.resolve(dir, includeRelPath));
+    const resolved = path.resolve(dir, includeRelPath);
+    if (isPathAllowed(resolved, allowedRoots)) {
+      candList.push(resolved);
+    }
   }
 
-  // Relative to current document directory
+  // Relative to current document directory - always allowed
   candList.push(path.resolve(fromDir, includeRelPath));
 
-  // As-is relative to CWD (rare in LSP), keep last
-  candList.push(path.resolve(includeRelPath));
+  // As-is relative to CWD (rare in LSP), keep last - only if in allowed roots
+  const cwdResolved = path.resolve(includeRelPath);
+  if (isPathAllowed(cwdResolved, allowedRoots)) {
+    candList.push(cwdResolved);
+  }
 
   for (const cand of candList) {
     try {
