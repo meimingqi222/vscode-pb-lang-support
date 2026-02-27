@@ -170,6 +170,7 @@ function findModuleFunctionReferences(
     for (const doc of searchDocs.values()) {
         const text = doc.getText();
         const lines = text.split('\n');
+        let inModule = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -201,19 +202,22 @@ function findModuleFunctionReferences(
 
             // 如果包含声明，在模块内查找函数定义
             if (includeDeclaration) {
-                // 额外：在同文档内寻找定义段
-                let inModule = false;
-                const moduleStartMatch = line.match(new RegExp(`^\\s*Module\\s+${moduleName}\\b`, 'i'));
+                // 检查模块开始
+                const moduleStartMatch = line.match(new RegExp(`^\\s*Module\\s+${escapeRegExp(moduleName)}\\b`, 'i'));
                 if (moduleStartMatch) {
                     inModule = true;
+                    continue;
                 }
 
+                // 检查模块结束
                 if (line.match(/^\s*EndModule\b/i)) {
                     inModule = false;
+                    continue;
                 }
 
+                // 在模块内查找过程定义
                 if (inModule) {
-                    const procMatch = line.match(new RegExp(`^\\s*Procedure(?:\\.\\w+)?\\s+(${functionName})\\s*\\(`, 'i'));
+                    const procMatch = line.match(new RegExp(`^\\s*Procedure(?:\\.\\w+)?\\s+(${escapeRegExp(functionName)})\\s*\\(`, 'i'));
                     if (procMatch) {
                         const startChar = line.indexOf(procMatch[1]);
                         references.push({

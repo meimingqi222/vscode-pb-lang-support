@@ -88,7 +88,11 @@ export function resolveIncludePath(
 
   // Relative to current document directory - validate to prevent traversal
   const relativeResolved = path.resolve(fromDir, includeRelPath);
-  if (isPathAllowed(relativeResolved, allowedRoots)) {
+  // Allow paths within workspaceRoot (if provided) or fromDir
+  const isAllowed = workspaceRoot
+    ? isPathAllowed(relativeResolved, [workspaceRoot])
+    : isPathAllowed(relativeResolved, [fromDir]);
+  if (isAllowed) {
     candList.push(relativeResolved);
   }
 
