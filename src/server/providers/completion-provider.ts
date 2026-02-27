@@ -46,7 +46,13 @@ function handleCompletionInternal(
     const position = params.position;
     const text = document.getText();
     const lines = text.split('\n');
-    const currentLine = lines[position.line] || '';
+
+    // 边界检查
+    if (position.line < 0 || position.line >= lines.length) {
+        return { isIncomplete: false, items: [] };
+    }
+
+    const currentLine = lines[position.line];
     const linePrefix = currentLine.substring(0, position.character);
 
     // 获取触发补全的上下文

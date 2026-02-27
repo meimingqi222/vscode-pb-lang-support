@@ -16,6 +16,13 @@ import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
+ * 转义正则表达式特殊字符
+ */
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * 准备重命名 - 检查是否可以重命名
  */
 export function handlePrepareRename(
@@ -40,7 +47,7 @@ export function handlePrepareRename(
 
     // 检查是否是可重命名的符号
     if (isRenameableSymbol(word, document, documentCache, position)) {
-        const range = getWordRange(line, position.character);
+        const range = getWordRange(line, position.line, position.character);
         return {
             range,
             placeholder: word
@@ -167,8 +174,11 @@ function getWordAtPosition(line: string, character: number): string | null {
 
 /**
  * 获取单词的范围
+ * @param line 当前行文本
+ * @param lineNum 行号（0-based）
+ * @param character 字符位置
  */
-function getWordRange(line: string, character: number): Range {
+function getWordRange(line: string, lineNum: number, character: number): Range {
     let start = character;
     let end = character;
 
@@ -181,8 +191,8 @@ function getWordRange(line: string, character: number): Range {
     }
 
     return {
-        start: { line: 0, character: start },
-        end: { line: 0, character: end }
+        start: { line: lineNum, character: start },
+        end: { line: lineNum, character: end }
     };
 }
 
@@ -399,7 +409,7 @@ function findAllOccurrences(
             const line = lines[i];
 
             // 使用单词边界匹配
-            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+            const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
             let match;
             while ((match = regex.exec(line)) !== null) {
                 // 跳过注释中的匹配

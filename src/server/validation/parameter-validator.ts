@@ -88,6 +88,8 @@ export function validateParameters(
 
         if (!isValid) {
             const paramStart = originalLine.indexOf(param);
+            // 如果找不到参数位置，跳过此诊断
+            if (paramStart === -1) continue;
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
                 range: {

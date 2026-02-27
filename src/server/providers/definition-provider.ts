@@ -371,7 +371,9 @@ function findDefinitionsInDocument(document: TextDocument, word: string): Locati
         // 查找常量定义
         const constMatch = parsePureBasicConstantDefinition(line);
         if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(word)) {
-            const startChar = lines[i].indexOf('#') + 1;
+            const hashIndex = lines[i].indexOf('#');
+            if (hashIndex === -1) continue;
+            const startChar = hashIndex + 1;
             definitions.push({
                 uri: document.uri,
                 range: {

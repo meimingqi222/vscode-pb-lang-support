@@ -281,9 +281,9 @@ class EnhancedSymbolCache {
     private recordAccess(uri: string): void {
         this.accessTimes.push({ uri, time: Date.now() });
 
-        // 保留最近1000次访问记录
-        if (this.accessTimes.length > 1000) {
-            this.accessTimes = this.accessTimes.slice(-1000);
+        // 保留最近1000次访问记录 - 使用shift避免创建新数组
+        while (this.accessTimes.length > 1000) {
+            this.accessTimes.shift();
         }
     }
 
