@@ -356,9 +356,9 @@ export class CompilerLauncher {
    * Launch the compiled PureBasic executable with the debug pipe information injected
    * via environment variables.
    */
-  launch(executablePath: string, communicationString: string): cp.ChildProcess {
+  launch(executablePath: string, communicationString: string, stopOnEntry = true): cp.ChildProcess {
     this.log(`Launch: ${executablePath}  [comm=${this.sanitizeCommunicationString(communicationString)}]`);
-    
+
     // Check if executable exists and log its stats
     try {
       const stats = fs.statSync(executablePath);
@@ -366,14 +366,15 @@ export class CompilerLauncher {
     } catch (err) {
       this.log(`Warning: Could not stat executable: ${err}`);
     }
-    
+
     // Prepare environment with required variables
     // PB_DEBUGGER_Options format: <unicode>;<callOnStart>;<callOnEnd>;<bigEndian>
-    // For FIFO on macOS, we also need to set this for the program to enter debug mode
+    // callOnStart: 1 = stop at entry, 0 = run until breakpoint
+    const callOnStart = stopOnEntry ? '1' : '0';
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       PB_DEBUGGER_Communication: communicationString,
-      PB_DEBUGGER_Options: '1;1;0;0',  // unicode=1, callOnStart=1, callOnEnd=0, bigEndian=0
+      PB_DEBUGGER_Options: `1;${callOnStart};0;0`,  // unicode=1, callOnStart=dynamic, callOnEnd=0, bigEndian=0
     };
     
     // Ensure PUREBASIC_HOME is set for the debuggee (needed on macOS/Linux)

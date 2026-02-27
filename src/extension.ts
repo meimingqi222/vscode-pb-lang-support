@@ -91,7 +91,7 @@ function registerDebugProvider(context: vscode.ExtensionContext): void {
                         config.name        = 'Debug PureBasic';
                         config.request     = 'launch';
                         config.program     = editor.document.fileName;
-                        config.stopOnEntry = true;
+                        config.stopOnEntry = false;
                     }
                 }
                 if (!config.program) {

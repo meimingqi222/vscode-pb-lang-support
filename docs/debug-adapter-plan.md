@@ -1,229 +1,206 @@
-# PureBasic 调试适配器（DAP）开发计划
+# PureBasic Debug Adapter (DAP) Technical Documentation
 
-> 本文档记录为 vscode-purebasic 扩展实现完整 DAP 调试适配器的技术方案，供后续开发参考。
-> 协议分析来源：[fantaisie-software/purebasic](https://github.com/fantaisie-software/purebasic) 开源 IDE 代码。
-
----
-
-## 实施进度
-
-| 阶段 | 状态 | 完成日期 | 说明 |
-|------|------|---------|------|
-| 阶段一：最小可用（启动/断点/继续） | ✅ 已完成 | 2026-02-23 | 所有源文件创建完毕，TypeScript 编译通过，webpack bundle 生成 |
-| 测试套件（单元 + 集成） | ✅ 已完成 | 2026-02-24 | 69 个测试全部通过，核心协议层 100% 覆盖 |
-| 阶段二：变量查看 | 🔲 待实现 | — | variableParser.ts 已实现，DAP handlers 待真机测试 |
-| 阶段三：调用栈 + 单步 | 🔲 待实现 | — | — |
-| 阶段四：表达式求值 | 🔲 待实现 | — | — |
-| 阶段五：健壮性优化 | 🔲 待实现 | — | — |
-
-### 阶段一已完成内容
-
-**新增文件：**
-- `src/debug/types/debugTypes.ts` — `LaunchRequestArguments`（继承 DAP 类型）、`CommandInfo`、`PBVariable`、`PBStackFrame`、`CompileResult`
-- `src/debug/protocol/commands.ts` — `PBCommand` / `PBEvent` const enum、协议常量
-- `src/debug/protocol/CommandInfo.ts` — 20 字节头部序列化/反序列化（`serialize` / `deserialize`）
-- `src/debug/protocol/variableParser.ts` — 二进制变量数据解析（支持所有 10 种 PB 类型）
-- `src/debug/transport/MessageBuffer.ts` — 流式粘包处理
-- `src/debug/transport/PipeTransport.ts` — Windows 双命名管道（`net.createServer().listen(\\.\pipe\...)` 模式）
-- `src/debug/compiler/CompilerLauncher.ts` — `pbcompiler.exe` 编译 + 进程启动 + 管道 ID 注入
-- `src/debug/session/sessionState.ts` — 会话状态机（idle/launching/running/stopped/terminated）
-- `src/debug/session/PBDebugSession.ts` — 完整 DAP 处理器（阶段一至四全部实现）
-- `src/debug/debugAdapter.ts` — 适配器入口（`DebugSession.run`）
-
-**修改文件：**
-- `package.json` — 新增 `contributes.debuggers`、`breakpoints`；扩展 `activationEvents`
-- `webpack.config.js` — 新增第三个入口 `src/debug/debugAdapter.ts → out/debug/debugAdapter.js`
-- `src/extension.ts` — 注册 `DebugConfigurationProvider`（支持无 launch.json 时 F5 直接调试）
-
-**测试覆盖率（2026-02-24）：**
-
-| 模块 | 语句 | 分支 | 函数 | 行 |
-|------|------|------|------|-----|
-| `CommandInfo.ts` | 100% | 100% | 100% | 100% |
-| `commands.ts` | 100% | 100% | 100% | 100% |
-| `variableParser.ts` | 94% | 86% | 100% | 100% |
-| `MessageBuffer.ts` | 100% | 100% | 100% | 100% |
-| `PipeTransport.ts` | 93% | 85% | 83% | 98% |
-| `sessionState.ts` | 100% | 100% | 100% | 100% |
-| `PBDebugSession.ts` | 33% | 27% | 22% | 34% |
-
-> `PBDebugSession.ts` 覆盖率低是预期行为：launch/configurationDone/stackTrace 等需要真实管道连接的路径不在单元测试范围内，由集成测试（需要 PureBasic 运行时）覆盖。
+> This document describes the technical principles and implementation details of the debug adapter in the vscode-purebasic extension.
+> Protocol analysis source: [fantaisie-software/purebasic](https://github.com/fantaisie-software/purebasic) open-source IDE code.
 
 ---
 
-## 目录
+## Table of Contents
 
-1. [背景与目标](#1-背景与目标)
-2. [技术原理：PureBasic 调试协议](#2-技术原理purebasic-调试协议)
-3. [架构设计](#3-架构设计)
-4. [文件结构](#4-文件结构)
-5. [配置修改清单](#5-配置修改清单)
-6. [分阶段实施路径](#6-分阶段实施路径)
-7. [核心实现要点](#7-核心实现要点)
-8. [风险与挑战](#8-风险与挑战)
+1. [Background and Goals](#1-background-and-goals)
+2. [Technical Principles: PureBasic Debug Protocol](#2-technical-principles-purebasic-debug-protocol)
+3. [Architecture Design](#3-architecture-design)
+4. [File Structure](#4-file-structure)
+5. [Configuration Guide](#5-configuration-guide)
+6. [Key Implementation Points](#6-key-implementation-points)
+7. [Risks and Challenges](#7-risks-and-challenges)
 
 ---
 
-## 1. 背景与目标
+## 1. Background and Goals
 
-### 现状
+### Current State
 
-vscode-purebasic 目前提供语言服务器功能（语法高亮、补全、悬停文档、诊断等），但**不支持调试**。用户无法在 VSCode 中设置断点、查看变量、单步执行 PureBasic 程序。
+vscode-purebasic currently provides language server features (syntax highlighting, completion, hover documentation, diagnostics, etc.), but **does not support debugging**. Users cannot set breakpoints, view variables, or step through PureBasic programs in VSCode.
 
-### 目标能力
+### Target Capabilities
 
-实现方案 A（完整 DAP 调试适配器）后，将支持：
+After implementing solution A (full DAP debug adapter), the following features will be supported:
 
-| 功能 | DAP 请求/事件 |
+| Feature | DAP Request/Event |
 |------|--------------|
-| 启动/附加调试会话 | `launch` / `attach` |
-| 设置/删除断点 | `setBreakpoints` |
-| 继续执行 | `continue` |
-| 单步（Into / Over / Out） | `next` / `stepIn` / `stepOut` |
-| 暂停 | `pause` |
-| 查看调用栈 | `stackTrace` |
-| 查看变量（局部/全局） | `variables` / `scopes` |
-| 表达式求值（监视窗口） | `evaluate` |
-| 调试输出（Debug Print） | `output` 事件 |
-| 程序终止 | `terminated` 事件 |
+| Launch/Attach debug session | `launch` / `attach` |
+| Set/Remove breakpoints | `setBreakpoints` |
+| Continue execution | `continue` |
+| Step (Into / Over / Out) | `next` / `stepIn` / `stepOut` |
+| Pause | `pause` |
+| View call stack | `stackTrace` |
+| View variables (local/global) | `variables` / `scopes` |
+| Expression evaluation (watch window) | `evaluate` |
+| Debug output (Debug Print) | `output` event |
+| Program termination | `terminated` event |
 
-### 为什么选方案 A（自制 DAP 适配器）
+### Why Solution A (Custom DAP Adapter)
 
-- PureBasic 使用**专有命名管道协议**，与 GDB/LLDB 等通用协议不兼容。
-- 官方 IDE（PureBasic IDE）通过同一协议与被调试进程通信，已有完整开源实现可参考。
-- 自制适配器可完全掌控协议细节，支持 PureBasic 特有类型（String、Pointer 等）。
+- PureBasic uses a **proprietary named pipe protocol** that is incompatible with GDB/LLDB and other generic protocols.
+- The official IDE (PureBasic IDE) communicates with the debuggee through the same protocol, with a complete open-source implementation available for reference.
+- A custom adapter allows full control over protocol details and supports PureBasic-specific types (String, Pointer, etc.).
 
 ---
 
-## 2. 技术原理：PureBasic 调试协议
+## 2. Technical Principles: PureBasic Debug Protocol
 
-### 2.1 传输层：Windows 命名管道
+### 2.1 Transport Layer
 
-PureBasic 调试系统使用**两条单向命名管道**实现双向通信：
+The PureBasic debug system supports multiple transport methods, using **two unidirectional channels** for bidirectional communication:
 
-```
-PipeA: \\.\pipe\PureBasic_DebuggerPipeA_XXXXXXXX  (调试器 → 被调试程序)
-PipeB: \\.\pipe\PureBasic_DebuggerPipeB_XXXXXXXX  (被调试程序 → 调试器)
-```
-
-- `XXXXXXXX` 为 8 位十六进制随机 ID，由调试器在启动时生成。
-- 管道 ID 通过环境变量 `PB_DEBUGGER_Communication` 注入被调试进程（格式：`XXXXXXXX`）。
-- **连接顺序**（非常重要）：调试器必须先以 `CreateNamedPipe` 创建两条管道，然后才能启动被调试程序，被调试程序随后以 `CreateFile` 连接。
-
-### 2.2 消息格式：`CommandInfo` 结构体
-
-每条消息由**固定 20 字节头部** + **可变数据**组成，所有字段为小端序：
+#### Windows Named Pipe
 
 ```
-Offset  Size  Field       说明
+PipeA: \\.\pipe\PureBasic_DebuggerPipeA_XXXXXXXX  (Debugger → Debuggee)
+PipeB: \\.\pipe\PureBasic_DebuggerPipeB_XXXXXXXX  (Debuggee → Debugger)
+```
+
+- `XXXXXXXX` is an 8-digit hexadecimal random ID generated by the debugger at startup
+- The pipe ID is injected into the debuggee process via environment variable `PB_DEBUGGER_Communication` (format: `XXXXXXXX`)
+
+#### Unix FIFO (macOS/Linux)
+
+```
+PipeA: /tmp/PureBasic_DebuggerPipeA_XXXXXXXX
+PipeB: /tmp/PureBasic_DebuggerPipeB_XXXXXXXX
+```
+
+- Uses FIFO special files (named pipes) for inter-process communication
+- Must strictly follow connection order
+
+#### TCP Network (Cross-platform)
+
+```
+Host: 127.0.0.1 (configurable)
+Port: Random available port
+```
+
+- Communicates via TCP socket
+- Suitable for remote debugging scenarios
+
+**Connection Order** (applies to all transport methods):
+The debugger must create/listen to the channel before starting the debuggee program.
+
+### 2.2 Message Format: `CommandInfo` Structure
+
+Each message consists of a **fixed 20-byte header** + **variable data**, all fields in little-endian:
+
+```
+Offset  Size  Field       Description
 ------  ----  ----------  ------------------------------------------
-0       4     Command     命令 ID（见下表）
-4       4     DataSize    后续 Data 字节数（0 表示无数据）
-8       4     Value1      命令参数 1（含义依命令而定）
-12      4     Value2      命令参数 2（含义依命令而定）
-16      4     Timestamp   调试器填写时间戳（程序侧可忽略）
-20      N     Data        可变长度数据（DataSize > 0 时存在）
+0       4     Command     Command ID (see table below)
+4       4     DataSize    Bytes of following Data (0 = no data)
+8       4     Value1      Command parameter 1 (meaning depends on command)
+12      4     Value2      Command parameter 2 (meaning depends on command)
+16      4     Timestamp   Timestamp filled by debugger (can be ignored by program)
+20      N     Data        Variable-length data (exists when DataSize > 0)
 ```
 
-> **协议版本号：12**。握手时双方交换版本，不一致则报错断开。
+> **Protocol Version: 12**. Both parties exchange versions during handshake; mismatch results in error and disconnection.
 
-### 2.3 命令集
+### 2.3 Command Set
 
-#### 调试器 → 被调试程序
+#### Debugger → Debuggee
 
-| Command ID | 名称 | Value1 | Value2 | Data |
+| Command ID | Name | Value1 | Value2 | Data |
 |-----------|------|--------|--------|------|
-| 0 | **Stop**（暂停） | — | — | — |
-| 1 | **Step**（单步） | — | 0=Into / 1=Over / 2=Out | — |
-| 2 | **Run**（继续） | — | — | — |
+| 0 | **Stop** | — | — | — |
+| 1 | **Step** | — | 0=Into / 1=Over / 2=Out | — |
+| 2 | **Run** | — | — | — |
 | 3 | **BreakPoint** | 1=Add / 2=Remove / 3=Clear | `(fileNum << 20) \| lineNum` | — |
 | 4 | **ClearBreakPoints** | — | — | — |
 | 9 | **GetGlobalNames** | — | — | — |
 | 10 | **GetGlobals** | — | — | — |
-| 11 | **GetLocals** | 过程索引 | — | — |
-| 12 | **GetLocalNames** | 过程索引 | — | — |
-| 16 | **GetHistory**（调用栈） | — | — | — |
-| 33 | **EvaluateExpression** | — | — | UTF-8 表达式字符串 |
-| 37 | **Kill**（终止程序） | — | — | — |
+| 11 | **GetLocals** | procedure index | — | — |
+| 12 | **GetLocalNames** | procedure index | — | — |
+| 16 | **GetHistory** (call stack) | — | — | — |
+| 33 | **EvaluateExpression** | — | — | UTF-8 expression string |
+| 37 | **Kill** (terminate program) | — | — | — |
 
-#### 被调试程序 → 调试器
+#### Debuggee → Debugger
 
-| Command ID | 名称 | Value1 | Value2 | Data |
+| Command ID | Name | Value1 | Value2 | Data |
 |-----------|------|--------|--------|------|
 | 4 | **Stopped** | fileNum | lineNum | — |
-| 5 | **End** | 退出码 | — | — |
-| 6 | **Error**（运行时错误） | — | — | UTF-16LE 错误描述 |
-| 7 | **DebugPrint** | — | — | UTF-16LE 文本 |
+| 5 | **End** | exit code | — | — |
+| 6 | **Error** (runtime error) | — | — | UTF-16LE error description |
+| 7 | **DebugPrint** | — | — | UTF-16LE text |
 | 8 | **CallDebugger** | fileNum | lineNum | — |
-| 17 | **History**（栈帧数据） | — | — | 见下文 |
-| 18 | **GlobalNames** | — | — | 名称列表（见下文） |
-| 19 | **Globals** | — | — | 变量值列表 |
-| 20 | **LocalNames** | — | — | 名称列表 |
-| 21 | **Locals** | — | — | 变量值列表 |
-| 34 | **ExpressionResult** | — | — | UTF-8 结果字符串 |
+| 17 | **History** (stack frame data) | — | — | See below |
+| 18 | **GlobalNames** | — | — | Name list (see below) |
+| 19 | **Globals** | — | — | Variable value list |
+| 20 | **LocalNames** | — | — | Name list |
+| 21 | **Locals** | — | — | Variable value list |
+| 34 | **ExpressionResult** | — | — | UTF-8 result string |
 
-### 2.4 History（调用栈）数据格式
+### 2.4 History (Call Stack) Data Format
 
-`History` 消息的 Data 段为连续帧记录，每帧格式：
-
-```
-[4B little-endian 行号] [UTF-16LE 过程名 \0]
-```
-
-栈顶帧（当前执行位置）在最前面。
-
-### 2.5 变量名称/值列表格式
-
-`GlobalNames` / `LocalNames` 数据段：
+The Data section of `History` messages contains consecutive frame records, each with the format:
 
 ```
-[4B 变量数量 N]
-N × { [4B 类型ID] [UTF-16LE 变量名 \0] }
+[4B little-endian line number] [UTF-16LE procedure name \0]
 ```
 
-`Globals` / `Locals` 数据段：
+The top frame (current execution location) is first.
+
+### 2.5 Variable Name/Value List Format
+
+`GlobalNames` / `LocalNames` data section:
 
 ```
-N × { 根据类型ID解析的值 }
+[4B variable count N]
+N × { [4B type ID] [UTF-16LE variable name \0] }
 ```
 
-| 类型 ID | PureBasic 类型 | 值格式 |
+`Globals` / `Locals` data section:
+
+```
+N × { value parsed according to type ID }
+```
+
+| Type ID | PureBasic Type | Value Format |
 |--------|---------------|--------|
-| 1 | Byte | 1B 有符号 |
-| 2 | Word | 2B 有符号 |
-| 3 | Long | 4B 有符号 |
+| 1 | Byte | 1B signed |
+| 2 | Word | 2B signed |
+| 3 | Long | 4B signed |
 | 4 | Float | 4B IEEE 754 |
-| 5 | String | 4B 长度 + UTF-16LE 字符 |
+| 5 | String | 4B length + UTF-16LE characters |
 | 6 | Double | 8B IEEE 754 |
-| 7 | Quad | 8B 有符号 |
+| 7 | Quad | 8B signed |
 | 8 | Character | 2B |
-| 9 | Pointer | 4B 或 8B（取决于目标位数） |
-| 10 | Integer | 4B 或 8B（取决于目标位数） |
+| 9 | Pointer | 4B or 8B (depends on target architecture) |
+| 10 | Integer | 4B or 8B (depends on target architecture) |
 
-### 2.6 编译器接口
+### 2.6 Compiler Interface
 
 ```bash
-# 方式一：直接编译（推荐用于调试启动）
+# Method 1: Direct compilation (recommended for debug launch)
 pbcompiler.exe source.pb /DEBUGGER /EXE output.exe
 
-# 方式二：Standby 管道模式（供 IDE 长期复用）
+# Method 2: Standby pipe mode (for long-term IDE reuse)
 pbcompiler.exe --standby
 ```
 
-调试启动时，需在编译完成后再连接管道并启动程序。
+When launching debug, the pipe must be connected after compilation completes and before starting the program.
 
 ---
 
-## 3. 架构设计
+## 3. Architecture Design
 
-### 三进程模型
+### Three-Process Model
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  VSCode Extension Host                                          │
 │  src/extension.ts                                               │
 │  ┌──────────────────────┐   DebugConfigurationProvider         │
-│  │  LanguageClient (LSP)│   (注册调试类型 "purebasic")          │
+│  │  LanguageClient (LSP)│   (Register debug type "purebasic")   │
 │  └──────────────────────┘                                       │
 └───────────────────────┬─────────────────────────────────────────┘
                         │  DAP (stdio)
@@ -231,323 +208,183 @@ pbcompiler.exe --standby
                         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Debug Adapter Process                                          │
-│  out/debug/debugAdapter.js  (独立 Node.js 进程)                  │
+│  out/debug/debugAdapter.js  (Independent Node.js process)       │
 │                                                                  │
 │  ┌──────────────┐   ┌────────────────┐   ┌───────────────────┐ │
-│  │ DAPSession   │   │ PipeClient     │   │ CompilerLauncher  │ │
-│  │ (vscode-dap) │◄──│ (命名管道收发) │   │ (调用 pbcompiler) │ │
+│  │ DAPSession   │   │ Transport      │   │ CompilerLauncher  │ │
+│  │ (vscode-dap) │◄──│ (Multiple impl)│   │ (Call pbcompiler) │ │
 │  └──────────────┘   └───────┬────────┘   └───────────────────┘ │
-│                              │ Win32 Pipe                        │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │  PipeA (命令) / PipeB (事件)
-                               ▼
+│                             │ Pipe/FIFO/TCP                     │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │  PipeA (commands) / PipeB (events)
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  PureBasic 被调试程序（目标进程）                                  │
-│  由 pbcompiler 编译并在 /DEBUGGER 模式下启动                      │
-│  通过环境变量 PB_DEBUGGER_Communication 获知管道 ID               │
+│  PureBasic Debuggee (Target Process)                            │
+│  Compiled by pbcompiler and started in /DEBUGGER mode           │
+│  Gets connection info via PB_DEBUGGER_Communication env var     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 数据流示意
+### Transport Layer Abstraction
+
+The debugger supports multiple transport methods through a unified interface:
+
+| Transport | Implementation File | Platform | Status |
+|----------|----------|----------|------|
+| Named Pipe | `PipeTransport.ts` | Windows | Verified |
+| FIFO | `FifoTransport.ts` | macOS/Linux | macOS Verified |
+| TCP | `NetworkTransport.ts` | Cross-platform | Pending verification |
+| Native | `NativeTransport.ts` | Windows | Pending verification |
+
+### Data Flow Example
 
 ```
-用户设断点 → VSCode UI
-  → DAP setBreakpoints 请求 → DAPSession
-  → BreakPoint 命令 (ID=3) → PipeA → PB程序
+User sets breakpoint → VSCode UI
+  → DAP setBreakpoints request → DAPSession
+  → BreakPoint command (ID=3) → PipeA → PB Program
 
-PB程序命中断点 → Stopped 事件 (ID=4) → PipeB
+PB Program hits breakpoint → Stopped event (ID=4) → PipeB
   → PipeClient → DAPSession
-  → DAP stopped 事件 → VSCode UI（高亮当前行）
+  → DAP stopped event → VSCode UI (highlight current line)
 ```
 
 ---
 
-## 4. 文件结构
+## 4. File Structure
 
 ```
 src/debug/
-├── debugAdapter.ts          # 适配器入口：启动 DAPServer，监听 stdio
+├── debugAdapter.ts          # Adapter entry: start DAPServer, listen on stdio
 ├── session/
-│   ├── PBDebugSession.ts    # 核心：继承 DebugSession，实现所有 DAP 请求处理器
-│   └── sessionState.ts      # 会话状态机（Idle / Running / Stopped / Terminated）
+│   ├── PBDebugSession.ts    # Core: extends DebugSession, implements all DAP handlers
+│   └── sessionState.ts      # Session state machine (Idle / Running / Stopped / Terminated)
 ├── protocol/
-│   ├── CommandInfo.ts       # CommandInfo 结构体的序列化/反序列化
-│   ├── commands.ts          # 命令 ID 常量枚举
-│   └── variableParser.ts    # 解析变量名称/值二进制数据
+│   ├── CommandInfo.ts       # CommandInfo structure serialization/deserialization
+│   ├── commands.ts          # Command ID constant enums
+│   └── variableParser.ts    # Parse variable name/value binary data
 ├── transport/
-│   ├── PipeTransport.ts     # 命名管道连接管理（创建、等待连接、读写）
-│   └── MessageBuffer.ts     # 粘包处理（按 DataSize 字段分帧）
+│   ├── PipeTransport.ts     # Windows named pipe implementation
+│   ├── FifoTransport.ts     # Unix FIFO implementation (macOS/Linux)
+│   ├── NetworkTransport.ts  # TCP network transport implementation
+│   ├── NativeTransport.ts   # Windows Native API implementation
+│   ├── TransportFactory.ts  # Transport factory, creates instance based on config
+│   └── MessageBuffer.ts     # Frame splitting (by DataSize field)
 ├── compiler/
-│   └── CompilerLauncher.ts  # 调用 pbcompiler.exe，管理编译和进程启动
+│   └── CompilerLauncher.ts  # Call pbcompiler, manage compilation and process launch
 └── types/
-    └── debugTypes.ts        # 调试相关 TypeScript 类型定义
+    └── debugTypes.ts        # Debug-related TypeScript type definitions
 ```
 
-### 各文件职责详解
+### File Responsibilities
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `debugAdapter.ts` | 程序入口，创建 `PBDebugSession` 实例，通过 stdio 与 VSCode 通信 |
-| `PBDebugSession.ts` | DAP 协议实现核心，将 DAP 请求翻译成 PB 命令，将 PB 事件翻译成 DAP 事件 |
-| `sessionState.ts` | 跟踪调试会话状态，防止在错误状态下发送命令 |
-| `CommandInfo.ts` | `Buffer` 序列化/反序列化 20 字节头 + Data |
-| `commands.ts` | `PBCommand` / `PBEvent` 枚举常量 |
-| `variableParser.ts` | 解析 `GlobalNames`/`Globals` 二进制数据，生成 `DebugProtocol.Variable[]` |
-| `PipeTransport.ts` | 封装 `net.Socket` 或 `fs.open('\\\\.\\pipe\\...')` 的读写，发出 `message` 事件 |
-| `MessageBuffer.ts` | 维护接收缓冲区，按 `DataSize` 字段切割完整帧 |
-| `CompilerLauncher.ts` | 生成管道 ID，构造编译命令行，启动 `pbcompiler.exe`，等待编译完成 |
-| `debugTypes.ts` | `PBVariable`、`PBStackFrame`、`LaunchConfig` 等类型 |
+| `debugAdapter.ts` | Program entry, creates `PBDebugSession` instance, communicates with VSCode via stdio |
+| `PBDebugSession.ts` | DAP protocol implementation core, translates DAP requests to PB commands and PB events to DAP events |
+| `sessionState.ts` | Tracks debug session state, prevents sending commands in wrong state |
+| `CommandInfo.ts` | `Buffer` serialization/deserialization of 20-byte header + Data |
+| `commands.ts` | `PBCommand` / `PBEvent` enum constants |
+| `variableParser.ts` | Parse `GlobalNames`/`Globals` binary data, generate `DebugProtocol.Variable[]` |
+| `PipeTransport.ts` | Windows named pipe implementation using `net.createServer` |
+| `FifoTransport.ts` | Unix FIFO implementation using `fs.mkfifo` and file streams |
+| `NetworkTransport.ts` | TCP socket implementation |
+| `TransportFactory.ts` | Creates corresponding transport instance based on `transport` config in `launch.json` |
+| `MessageBuffer.ts` | Maintains receive buffer, splits complete frames by `DataSize` field |
+| `CompilerLauncher.ts` | Generate connection ID, construct compile command line, start `pbcompiler`, wait for compilation |
+| `debugTypes.ts` | Types like `PBVariable`, `PBStackFrame`, `LaunchConfig` |
 
 ---
 
-## 5. 配置修改清单
+## 5. Configuration Guide
 
-### 5.1 `package.json`
+### 5.1 Minimal Configuration Example
+
+Create `.vscode/launch.json`:
 
 ```json
-// 在 "contributes" 中添加：
 {
-  "debuggers": [
+  "version": "0.2.0",
+  "configurations": [
     {
       "type": "purebasic",
-      "label": "PureBasic",
-      "program": "./out/debug/debugAdapter.js",
-      "runtime": "node",
-      "languages": ["purebasic"],
-      "configurationAttributes": {
-        "launch": {
-          "required": ["program"],
-          "properties": {
-            "program": {
-              "type": "string",
-              "description": "PureBasic source file (.pb) to debug",
-              "default": "${file}"
-            },
-            "compiler": {
-              "type": "string",
-              "description": "Path to pbcompiler.exe",
-              "default": "pbcompiler"
-            },
-            "stopOnEntry": {
-              "type": "boolean",
-              "description": "Stop at first line when launching",
-              "default": true
-            }
-          }
-        }
-      },
-      "initialConfigurations": [
-        {
-          "type": "purebasic",
-          "request": "launch",
-          "name": "Debug PureBasic",
-          "program": "${file}",
-          "stopOnEntry": true
-        }
-      ]
+      "request": "launch",
+      "name": "Debug PureBasic",
+      "program": "${file}",
+      "stopOnEntry": false
     }
-  ],
-  "breakpoints": [
-    { "language": "purebasic" }
   ]
 }
-
-// 在 "activationEvents" 中添加：
-"onDebugResolve:purebasic",
-"onDebugAdapterProtocolTracker:purebasic"
-
-// 在 "dependencies" 中添加：
-"@vscode/debugadapter": "^1.65.0",
-"@vscode/debugprotocol": "^1.65.0"
 ```
 
-### 5.2 `webpack.config.js`
+Or launch directly with F5 shortcut (no configuration file needed).
 
-在现有两个入口（extension、server）的基础上，新增第三个入口：
+### 5.2 Full Configuration Options
 
-```javascript
-// 新增调试适配器入口
-{
-  target: 'node',
-  entry: {
-    'debug/debugAdapter': './src/debug/debugAdapter.ts',
-  },
-  output: {
-    path: path.resolve(__dirname, 'out'),
-    filename: '[name].js',
-    libraryTarget: 'commonjs2',
-  },
-  // 使用与 server 相同的 externals 和 resolve 配置
-  externals: {
-    vscode: 'commonjs vscode',
-  },
-  // ... 其余与 server 条目相同
-}
-```
+| Property | Type | Default | Description |
+|------|------|--------|------|
+| `program` | string | `${file}` | Path to PureBasic source file to debug |
+| `compiler` | string | `pbcompiler` | Path to PureBasic compiler |
+| `stopOnEntry` | boolean | `false` | Whether to pause at entry point on launch |
+| `transport` | string | `auto` | Transport method: `auto`, `pipe`, `fifo`, `network`, `native` |
+| `debugHost` | string | `127.0.0.1` | Host address for network mode |
+| `communication` | string | Auto-generated | Force specify communication ID (advanced option) |
+| `trace` | boolean | `false` | Enable detailed debug logging |
 
-> 注：若 `webpack.config.js` 使用 `module.exports = [entry1, entry2]` 数组形式，直接追加第三项即可。
+### 5.3 Transport Mode Selection
 
-### 5.3 `tsconfig.json`
+| Mode | Windows | Linux | macOS | Description |
+|------|---------|-------|-------|------|
+| `auto` | Named Pipe ✓ | FIFO¹ | FIFO ✓ | Automatically select best method for platform |
+| `pipe` | Named Pipe | - | - | Windows named pipe |
+| `fifo` | - | FIFO¹ | FIFO¹ | Unix FIFO |
+| `network` | TCP | TCP | TCP | TCP socket |
+| `native` | Native API | - | - | Windows Native API |
 
-确认 `src/debug/**` **未被** `exclude` 排除。若有如下配置则删除：
+**Legend**: ✓ = Verified, ¹ = Expected to work (not verified), - = Not supported
 
-```json
-// 删除（若存在）：
-"exclude": ["src/debug"]
-```
+### 5.4 `PB_DEBUGGER_Options` Environment Variable
 
-通常无需修改，默认包含 `src/` 下所有 `.ts` 文件。
-
-### 5.4 `src/extension.ts`
-
-注册调试配置提供者（可选但推荐，支持自动推导配置）：
-
-```typescript
-import * as vscode from 'vscode';
-
-// 在 activate() 函数中添加：
-context.subscriptions.push(
-  vscode.debug.registerDebugConfigurationProvider('purebasic', {
-    resolveDebugConfiguration(
-      folder: vscode.WorkspaceFolder | undefined,
-      config: vscode.DebugConfiguration
-    ): vscode.ProviderResult<vscode.DebugConfiguration> {
-      // 若未配置 launch.json，提供默认值
-      if (!config.type && !config.request && !config.name) {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.languageId === 'purebasic') {
-          config.type = 'purebasic';
-          config.name = 'Debug PureBasic';
-          config.request = 'launch';
-          config.program = '${file}';
-          config.stopOnEntry = true;
-        }
-      }
-      return config;
-    }
-  })
-);
-```
-
----
-
-## 6. 分阶段实施路径
-
-### 阶段一：最小可用（启动 + 断点 + 继续）
-
-**目标**：能在 VSCode 中按 F5 启动调试，命中断点后暂停，按 F5 继续。
-
-**任务**：
-1. 安装依赖：`npm install @vscode/debugadapter @vscode/debugprotocol`
-2. 实现 `CompilerLauncher.ts`：生成管道 ID，调用 `pbcompiler.exe` 编译
-3. 实现 `PipeTransport.ts`：创建命名管道，等待被调试程序连接
-4. 实现 `CommandInfo.ts`：序列化/反序列化 20 字节头
-5. 实现 `MessageBuffer.ts`：粘包处理
-6. 实现 `PBDebugSession.ts` 骨架：
-   - `launchRequest`：编译 → 创建管道 → 启动程序 → 握手
-   - `setBreakpointsRequest`：发送 BreakPoint 命令（ID=3）
-   - `continueRequest`：发送 Run 命令（ID=2）
-   - 处理 `Stopped` 事件（ID=4）：发出 DAP `stopped` 事件
-   - 处理 `End` 事件（ID=5）：发出 DAP `terminated` 事件
-7. 修改 `package.json` 和 `webpack.config.js`
-8. 编译并打包测试
-
-**验收标准**：在 `.pb` 文件中设断点，F5 启动后程序停在断点行，再按 F5 继续执行至结束。
-
----
-
-### 阶段二：变量查看
-
-**目标**：暂停时在"变量"面板查看全局和局部变量。
-
-**任务**：
-1. 实现 `variableParser.ts`：解析二进制变量数据
-2. `PBDebugSession.ts` 新增：
-   - `scopesRequest`：返回 "Globals" 和 "Locals" 两个作用域
-   - `variablesRequest`：
-     - 全局：发送 `GetGlobalNames`（ID=9）+ `GetGlobals`（ID=10），等待两个响应后合并
-     - 局部：发送 `GetLocalNames`（ID=12）+ `GetLocals`（ID=11），传入过程索引
-3. 处理 `GlobalNames`（ID=18）、`Globals`（ID=19）、`LocalNames`（ID=20）、`Locals`（ID=21）响应
-
-**验收标准**：暂停时"变量"面板显示正确的变量名和值，包括 String 类型。
-
----
-
-### 阶段三：调用栈 + 单步
-
-**目标**：暂停时查看调用栈，使用 F10/F11/Shift+F11 单步调试。
-
-**任务**：
-1. `PBDebugSession.ts` 新增：
-   - `stackTraceRequest`：发送 `GetHistory`（ID=16），解析 `History`（ID=17）响应
-   - `nextRequest`：发送 Step 命令（ID=1，Value2=1 Over）
-   - `stepInRequest`：发送 Step 命令（ID=1，Value2=0 Into）
-   - `stepOutRequest`：发送 Step 命令（ID=1，Value2=2 Out）
-2. 解析 `History` 数据格式（[4B 行号][UTF-16LE 过程名\0]...）
-3. 维护文件编号到文件路径的映射（`Stopped` 事件中的 `fileNum`）
-
-**验收标准**：调用栈面板显示正确的栈帧，单步操作正常工作。
-
----
-
-### 阶段四：表达式求值
-
-**目标**：监视窗口和调试控制台支持表达式求值。
-
-**任务**：
-1. `PBDebugSession.ts` 新增：
-   - `evaluateRequest`：发送 `EvaluateExpression`（ID=33，Data=UTF-8 表达式）
-   - 处理 `ExpressionResult`（ID=34）响应
-2. 处理 `DebugPrint`（ID=7）事件：发出 DAP `output` 事件到调试控制台
-3. 处理 `Error`（ID=6）事件：发出 DAP `output` 事件（category: "stderr"）
-
-**验收标准**：监视窗口中输入 PureBasic 变量名/表达式，显示当前值；`Debug` 语句输出到调试控制台。
-
----
-
-### 阶段五：健壮性与体验优化
-
-**目标**：提升稳定性和用户体验。
-
-**任务**：
-1. 超时处理：管道连接、编译过程设置超时，超时后报错并清理
-2. 进程清理：调试会话结束或 VSCode 关闭时，确保被调试程序和管道被正确清理
-3. 错误信息本地化：将协议错误转换为友好的 VSCode 通知
-4. `disconnectRequest`：发送 Kill 命令（ID=37），等待 End 事件后断开管道
-5. `pauseRequest`：发送 Stop 命令（ID=0）
-6. 多文件支持：正确处理 `IncludeFile` 引入文件的断点（fileNum 映射）
-7. 添加调试日志（可通过 `launch.json` 中 `"trace": true` 启用）
-
----
-
-## 7. 核心实现要点
-
-### 7.1 管道连接顺序（关键）
+The compiled program receives debug configuration via environment variable:
 
 ```
-调试器进程                          被调试进程
------------                          ----------
-1. 生成随机 PIPE_ID
+PB_DEBUGGER_Options: <unicode>;<callOnStart>;<callOnEnd>;<bigEndian>
+```
+
+- `unicode`: Always `1` (UTF-16LE encoding)
+- `callOnStart`: `1` = pause on start (controlled by `stopOnEntry`)
+- `callOnEnd`: Always `0`
+- `bigEndian`: Always `0` (little-endian)
+
+---
+
+## 6. Key Implementation Points
+
+### 6.1 Channel Connection Order (Critical)
+
+```
+Debugger Process                    Debuggee Process
+---------------                     ----------------
+1. Generate random PIPE_ID
 2. CreateNamedPipe(PipeA)  ────►
 3. CreateNamedPipe(PipeB)  ────►
-4. 设置环境变量 PB_DEBUGGER_Communication=PIPE_ID
-5. 启动 pbcompiler.exe 编译
-6. 等待编译完成
-7. 启动被调试程序（继承环境变量）
-                                     8. 读取环境变量获取 PIPE_ID
+4. Set env var PB_DEBUGGER_Communication=PIPE_ID
+5. Start pbcompiler.exe compilation
+6. Wait for compilation to complete
+7. Launch debuggee (inherits env vars)
+                                     8. Read env var to get PIPE_ID
 8. ConnectNamedPipe(PipeA)           9. CreateFile(PipeA)  ◄────
 9. ConnectNamedPipe(PipeB)           10. CreateFile(PipeB) ◄────
-10. 握手（交换协议版本=12）
+10. Handshake (exchange protocol version=12)
 ```
 
-> **错误陷阱**：若先启动程序再创建管道，程序将因连接失败而崩溃。必须先创建管道。
+> **Trap**: If the program is started before creating the channel, it will crash on connection failure. The channel must be created first.
 
-### 7.2 粘包处理
+### 6.2 Frame Splitting
 
-TCP/命名管道是流式传输，必须根据消息头的 `DataSize` 字段手动分帧：
+All transport methods (Named Pipe, FIFO, TCP) are stream-based and must be manually framed according to the `DataSize` field in the message header:
 
 ```typescript
-// MessageBuffer.ts 伪代码
+// MessageBuffer.ts pseudocode
 class MessageBuffer {
   private buffer: Buffer = Buffer.alloc(0);
 
@@ -555,11 +392,11 @@ class MessageBuffer {
     this.buffer = Buffer.concat([this.buffer, chunk]);
     const messages: CommandInfo[] = [];
 
-    while (this.buffer.length >= 20) {  // 至少有完整头部
+    while (this.buffer.length >= 20) {  // At least full header
       const dataSize = this.buffer.readUInt32LE(4);
       const totalSize = 20 + dataSize;
 
-      if (this.buffer.length < totalSize) break;  // 等待更多数据
+      if (this.buffer.length < totalSize) break;  // Wait for more data
 
       messages.push(parseCommandInfo(this.buffer.slice(0, totalSize)));
       this.buffer = this.buffer.slice(totalSize);
@@ -570,12 +407,12 @@ class MessageBuffer {
 }
 ```
 
-### 7.3 异步请求-响应匹配
+### 6.3 Asynchronous Request-Response Matching
 
-PB 协议没有请求 ID，响应按命令类型区分。需维护一个等待队列：
+The PB protocol has no request ID; responses are distinguished by command type. A pending queue must be maintained:
 
 ```typescript
-// 发送请求并等待特定类型的响应
+// Send request and wait for specific response type
 async request(command: PBCommand, responseType: PBEvent, ...): Promise<CommandInfo> {
   return new Promise((resolve) => {
     this.pendingResponses.set(responseType, resolve);
@@ -584,15 +421,15 @@ async request(command: PBCommand, responseType: PBEvent, ...): Promise<CommandIn
 }
 ```
 
-> **注意**：`GetGlobalNames` 和 `GetGlobals` 需要分别等待各自的响应，不能并发发送（协议不支持请求 ID）。
+> **Note**: `GetGlobalNames` and `GetGlobals` need to wait for their respective responses and cannot be sent concurrently (protocol does not support request IDs).
 
-### 7.4 String 类型解码
+### 6.4 String Type Decoding
 
-PureBasic 的 String 在调试协议中以 UTF-16LE 编码传输：
+PureBasic Strings are transmitted in UTF-16LE encoding in the debug protocol:
 
 ```typescript
 function decodeUTF16LEString(buf: Buffer, offset: number): string {
-  // 先读 4B 长度（字符数，不包括终止符）
+  // First read 4B length (character count, excluding terminator)
   const charCount = buf.readUInt32LE(offset);
   const start = offset + 4;
   const end = start + charCount * 2;
@@ -600,47 +437,53 @@ function decodeUTF16LEString(buf: Buffer, offset: number): string {
 }
 ```
 
-### 7.5 文件编号映射
+### 6.5 File Number Mapping
 
-PB 调试协议用 `fileNum`（整数）标识文件，而 DAP 用文件路径（URI）。需维护映射表：
+The PB debug protocol uses `fileNum` (integer) to identify files, while DAP uses file paths (URI). A mapping table must be maintained:
 
 ```typescript
-// 在 launchRequest 时建立映射
-// fileNum=0 始终是主文件（被编译的 .pb 文件）
-// IncludeFile 对应的 fileNum 在首次 Stopped 事件中出现
+// Establish mapping during launchRequest
+// fileNum=0 is always the main file (the compiled .pb file)
+// IncludeFile fileNums appear in the first Stopped event
 private fileNumToPath = new Map<number, string>();
 ```
 
 ---
 
-## 8. 风险与挑战
+## 7. Risks and Challenges
 
-| 风险 | 级别 | 缓解措施 |
+| Risk | Level | Mitigation |
 |------|------|---------|
-| **管道方向确认**：PipeA/PipeB 哪个是输入/输出可能与文档相反 | 中 | 实现后通过实际测试确认，协议握手可验证方向 |
-| **命名管道 API**：Node.js 在 Windows 上使用 `net.createServer('\\\\.\\pipe\\...')` 而非 Win32 API | 中 | 使用 `net` 模块，服务端 `createServer` + `listen`，客户端 `createConnection` |
-| **竞态条件**：被调试程序启动后可能在调试器连接管道之前就尝试连接 | 中 | `CreateNamedPipe` 必须在启动程序之前完成（参见 7.1） |
-| **String 类型编码**：不同 PB 版本可能使用不同编码（UTF-16LE vs ASCII） | 低 | 通过协议版本号区分，先实现 UTF-16LE |
-| **64 位 vs 32 位**：Integer/Pointer 大小不同 | 低 | 通过 `launch.json` 配置项或编译器输出判断目标位数 |
-| **编译器路径**：用户环境中 `pbcompiler.exe` 可能不在 PATH | 低 | 在 `launch.json` 提供 `compiler` 配置项，并给出友好的错误提示 |
-| **管道缓冲区溢出**：大量局部变量导致单次响应超出缓冲区 | 低 | `MessageBuffer` 动态扩展，无固定大小限制 |
-| **进程泄漏**：调试会话意外断开时被调试程序未被终止 | 中 | 注册 `process.on('exit')` 和 VSCode `onDidTerminateDebugSession` 事件进行清理 |
+| **Pipe direction confirmation**: PipeA/PipeB input/output direction may be opposite from documentation | Medium | Confirm through actual testing after implementation, protocol handshake can verify direction |
+| **Named pipe API**: Node.js on Windows uses `net.createServer('\\\\.\\pipe\\...')` instead of Win32 API | Medium | Use `net` module, server-side `createServer` + `listen`, client-side `createConnection` |
+| **Race condition**: Debuggee may try to connect before debugger connects to channel | Medium | Must create/listen to channel before starting program (see 6.1) |
+| **String type encoding**: Different PB versions may use different encodings (UTF-16LE vs ASCII) | Low | Distinguish by protocol version, implement UTF-16LE first |
+| **64-bit vs 32-bit**: Integer/Pointer sizes differ | Low | Determine target architecture via `launch.json` config or compiler output |
+| **Compiler path**: `pbcompiler.exe` may not be in PATH in user environment | Low | Provide `compiler` config in `launch.json` with friendly error messages |
+| **Pipe buffer overflow**: Large number of local variables may exceed buffer in single response | Low | `MessageBuffer` dynamically expands with no fixed size limit |
+| **Process leak**: Debuggee not terminated when debug session disconnects unexpectedly | Medium | Register `process.on('exit')` and VSCode `onDidTerminateDebugSession` events for cleanup |
 
-### 平台限制
+### Platform Support
 
-- 命名管道为 **Windows 专有**。在 macOS/Linux 上，PureBasic 的调试协议实现不同（可能使用 Unix domain socket 或其他机制）。当前计划**仅覆盖 Windows 平台**。
-- 若需跨平台支持，需要研究 PureBasic 在 macOS/Linux 上的调试协议实现。
+| Platform | Transport | Status |
+|------|----------|------|
+| Windows | Named Pipe | Verified |
+| macOS | FIFO | Verified |
+| Linux | FIFO | Expected to work (not verified) |
+
+All platforms use the same PureBasic debug protocol, only the transport layer implementation differs.
 
 ---
 
-## 附录：参考资料
+## Appendix: References
 
-- [fantaisie-software/purebasic](https://github.com/fantaisie-software/purebasic) — PureBasic 官方开源 IDE，包含完整调试协议实现
-  - `PureBasicIDE/Debugger.pb` — 调试器主逻辑
-  - `PureBasicIDE/DebuggerInterface.pb` — 调试协议命令/事件定义
-- [Microsoft DAP 规范](https://microsoft.github.io/debug-adapter-protocol/specification) — Debug Adapter Protocol 完整规范
-- [@vscode/debugadapter](https://www.npmjs.com/package/@vscode/debugadapter) — VSCode 官方 DAP Node.js SDK
-- 本项目现有可复用代码：
-  - `src/server/utils/error-handler.ts` — `ErrorHandler` 类
-  - `src/types/generics.ts` — `Result<T,E>` 等泛型工具类型
-  - `src/server/utils/fs-utils.ts` — 文件路径工具
+- [fantaisie-software/purebasic](https://github.com/fantaisie-software/purebasic) — PureBasic official open-source IDE, contains complete debug protocol implementation
+  - `PureBasicIDE/Debugger.pb` — Debugger main logic
+  - `PureBasicIDE/DebuggerInterface.pb` — Debug protocol command/event definitions
+- [Microsoft DAP Specification](https://microsoft.github.io/debug-adapter-protocol/specification) — Debug Adapter Protocol complete specification
+- [@vscode/debugadapter](https://www.npmjs.com/package/@vscode/debugadapter) — VSCode official DAP Node.js SDK
+- Reusable code in this project:
+  - `src/server/utils/error-handler.ts` — `ErrorHandler` class
+  - `src/types/generics.ts` — `Result<T,E>` and other generic utility types
+  - `src/server/utils/fs-utils.ts` — File path utilities
+
