@@ -465,7 +465,7 @@ function handleModuleSymbolRename(
             const trimmed = raw.trim();
 
             // 使用处：Module::ident / Module::#ident
-            const re = new RegExp(`\\b${moduleName}::#?${ident}\\b`, 'g');
+            const re = new RegExp(`\\b${escapeRegExp(moduleName)}::#?${escapeRegExp(ident)}\\b`, 'g');
             let m: RegExpExecArray | null;
             while ((m = re.exec(raw)) !== null) {
                 const identStart = m.index + moduleName.length + 2 + (raw[m.index + moduleName.length + 2] === '#' ? 1 : 0);
@@ -480,9 +480,9 @@ function handleModuleSymbolRename(
                 continue;
             }
             const defMatchers = [
-                new RegExp(`^Structure\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Interface\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i')
+                new RegExp(`^Structure\\s+(${escapeRegExp(ident)})\\b`, 'i'),
+                new RegExp(`^Interface\\s+(${escapeRegExp(ident)})\\b`, 'i'),
+                new RegExp(`^Enumeration\\s+(${escapeRegExp(ident)})\\b`, 'i')
             ];
             for (const r of defMatchers) {
                 const mm = trimmed.match(r);
