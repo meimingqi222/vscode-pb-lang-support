@@ -147,7 +147,7 @@ export const typeSuffixes = [
 ];
 
 const pureBasicConstantNamePattern = '[a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?';
-const pureBasicConstantDefinitionRegex = new RegExp(`^#(${pureBasicConstantNamePattern})\\s*=\\s*(.*)$`, 'i');
+const pureBasicConstantDefinitionRegex = new RegExp(`^#(${pureBasicConstantNamePattern})\\s*=\\s*([^;]*?)(?:\\s*;.*)?$`, 'i');
 const pureBasicConstantDeclarationRegex = new RegExp(`^#(${pureBasicConstantNamePattern})(?:\\s*=\\s*(.*))?$`, 'i');
 
 export interface ParsedPureBasicConstant {

@@ -25,8 +25,11 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
   private binaryBuffer = new MessageBuffer();
   private textBuffer = Buffer.alloc(0);
   private handshakeComplete = false;
+  private handshakeStarted = false;
+  private handshakeTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
   private connectionHandlerRegistered = false;
+  private readonly HANDSHAKE_TIMEOUT_MS = 1000; // Timeout for text handshake detection
 
   constructor(host = '127.0.0.1', port = 0, password?: string) {
     super();
@@ -73,6 +76,16 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
     }
 
     this.socket = socket;
+    this.handshakeStarted = false;
+    this.handshakeComplete = false;
+
+    // Start handshake timeout timer for Windows direct binary detection
+    this.handshakeTimer = setTimeout(() => {
+      if (!this.handshakeComplete && this.textBuffer.length > 0) {
+        this.log('Handshake timeout - assuming Windows direct binary mode');
+        this.skipHandshakeAndProcessBinary();
+      }
+    }, this.HANDSHAKE_TIMEOUT_MS);
 
     socket.on('data', (chunk: Buffer) => {
       if (!this.handshakeComplete) {
@@ -98,17 +111,64 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       this._connected = false;
       this.socket = null;
       this.handshakeComplete = false;
+      if (this.handshakeTimer) {
+        clearTimeout(this.handshakeTimer);
+        this.handshakeTimer = null;
+      }
     });
+  }
+
+  /**
+   * Skip text handshake and process accumulated buffer as binary data.
+   * Used for Windows direct binary protocol (no CONNECT handshake).
+   */
+  private skipHandshakeAndProcessBinary(): void {
+    if (!this.socket) return;
+
+    this.handshakeComplete = true;
+    this._connected = true;
+    this.log('Skipping handshake, entering binary mode directly');
+
+    // Clear handshake timer
+    if (this.handshakeTimer) {
+      clearTimeout(this.handshakeTimer);
+      this.handshakeTimer = null;
+    }
+
+    // Process any accumulated data as binary
+    if (this.textBuffer.length > 0) {
+      this.log(`Processing ${this.textBuffer.length} bytes as binary data`);
+      const data = this.textBuffer;
+      this.textBuffer = Buffer.alloc(0);
+      this.handleBinaryData(data);
+    }
+
+    this.emit('connected');
   }
 
   /**
    * Handle text-based handshake protocol (macOS/Linux).
    * Format: "CONNECT <version> DEBUGGER\n\n"
+   *
+   * Falls back to binary mode if data doesn't look like a handshake (Windows direct binary).
    */
   private handleTextHandshake(chunk: Buffer): void {
     // Accumulate raw buffer chunks to avoid binary data corruption from string conversion
     this.textBuffer = Buffer.concat([this.textBuffer, chunk]);
+    this.handshakeStarted = true;
     this.log(`Handshake buffer size: ${this.textBuffer.length} bytes`);
+
+    // Check if this looks like binary data (non-ASCII or starts with binary header)
+    // Binary protocol starts with 8-byte header: 4 bytes command + 4 bytes data size
+    // If first byte is not printable ASCII (excluding common text chars), likely binary
+    if (this.textBuffer.length >= 8) {
+      const looksLikeBinary = this.detectBinaryData(this.textBuffer);
+      if (looksLikeBinary) {
+        this.log('Data appears to be binary (not text handshake), switching to binary mode');
+        this.skipHandshakeAndProcessBinary();
+        return;
+      }
+    }
 
     // Search for delimiter in raw buffer
     const delimiter = Buffer.from('\n\n');
@@ -141,6 +201,12 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       const version = parseInt(connectMatch[1], 10);
       this.log(`Handshake successful, version=${version}`);
 
+      // Clear handshake timer
+      if (this.handshakeTimer) {
+        clearTimeout(this.handshakeTimer);
+        this.handshakeTimer = null;
+      }
+
       // Send response: version followed by newline (password if set)
       // Format: "<version>\n" or "<version>;<password>\n"
       let response = `${version}\n`;
@@ -165,6 +231,29 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
       this.log(`Unexpected handshake message: ${message}`);
       this.emit('error', new Error(`Unexpected handshake message: ${message}`));
     }
+  }
+
+  /**
+   * Detect if buffer contains binary data (Windows direct binary protocol).
+   * Heuristic: if buffer contains non-printable characters (except common whitespace),
+   * it's likely binary data.
+   */
+  private detectBinaryData(buffer: Buffer): boolean {
+    // Check first 8 bytes (minimum header size)
+    const checkLength = Math.min(8, buffer.length);
+    let nonPrintableCount = 0;
+
+    for (let i = 0; i < checkLength; i++) {
+      const byte = buffer[i];
+      // Allow printable ASCII (32-126), tab (9), newline (10), carriage return (13)
+      const isPrintable = (byte >= 32 && byte <= 126) || byte === 9 || byte === 10 || byte === 13;
+      if (!isPrintable) {
+        nonPrintableCount++;
+      }
+    }
+
+    // If more than 50% of first bytes are non-printable, likely binary
+    return nonPrintableCount > checkLength / 2;
   }
 
   private handleBinaryData(chunk: Buffer): void {
@@ -201,10 +290,15 @@ export class NetworkTransport extends EventEmitter implements IDebugTransport {
   }
 
   close(): void {
+    if (this.handshakeTimer) {
+      clearTimeout(this.handshakeTimer);
+      this.handshakeTimer = null;
+    }
     try { this.socket?.destroy(); } catch {}
     this.socket = null;
     this._connected = false;
     this.handshakeComplete = false;
+    this.handshakeStarted = false;
     try { this.server.close(); } catch {}
     this.binaryBuffer.clear();
     this.textBuffer = Buffer.alloc(0);

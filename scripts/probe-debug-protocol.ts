@@ -190,7 +190,7 @@ async function main() {
 
       // Now try to send a breakpoint at line 10
       console.log('[Probe] Setting breakpoint at line 10 of file 0...');
-      const bp = (0 << 16) | 10;
+      const bp = (0 << 20) | 10;
       send(3, 1, bp); // BreakPoint Add
 
       // Then run

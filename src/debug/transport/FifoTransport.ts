@@ -123,17 +123,38 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
    * Poll the input FIFO for data using non-blocking fs.read().
    * EAGAIN simply means "no data yet" — we just retry on the next tick.
    * This avoids the fatal destroy() that fs.createReadStream does on EAGAIN.
+   *
+   * Uses async fs.read() to avoid blocking the event loop.
    */
   private startPolling(): void {
     const POLL_INTERVAL = 20; // ms
     const READ_BUF_SIZE = 8192;
 
-    this.pollTimer = setInterval(() => {
-      if (this.inFd === null) return;
+    const poll = () => {
+      if (this.inFd === null) {
+        this.pollTimer = null;
+        return;
+      }
 
       const buf = Buffer.alloc(READ_BUF_SIZE);
-      try {
-        const bytesRead = fs.readSync(this.inFd, buf, 0, READ_BUF_SIZE, null);
+      fs.read(this.inFd, buf, 0, READ_BUF_SIZE, null, (err, bytesRead) => {
+        if (err) {
+          if ((err as NodeJS.ErrnoException).code === 'EAGAIN' ||
+              (err as NodeJS.ErrnoException).code === 'EWOULDBLOCK') {
+            // No data available right now — perfectly normal, schedule next poll
+            this.pollTimer = setTimeout(poll, POLL_INTERVAL);
+            return;
+          }
+          this.log(`Poll read error: ${err.message}`);
+          if ((err as NodeJS.ErrnoException).code !== 'EPIPE' &&
+              (err as NodeJS.ErrnoException).code !== 'ECONNRESET') {
+            this.emit('error', err);
+          }
+          // Continue polling even after non-fatal errors
+          this.pollTimer = setTimeout(poll, POLL_INTERVAL);
+          return;
+        }
+
         if (bytesRead === 0) {
           // EOF — writer closed their end
           this.log('Input FIFO EOF');
@@ -142,32 +163,30 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
           this.emit('end');
           return;
         }
+
         this.buffer = Buffer.concat([this.buffer, buf.slice(0, bytesRead)]);
         this.processBuffer();
-      } catch (err: any) {
-        if (err.code === 'EAGAIN' || err.code === 'EWOULDBLOCK') {
-          // No data available right now — perfectly normal, just wait
-          return;
-        }
-        this.log(`Poll read error: ${err.message}`);
-        if (err.code !== 'EPIPE' && err.code !== 'ECONNRESET') {
-          this.emit('error', err);
-        }
-      }
-    }, POLL_INTERVAL);
+
+        // Schedule next poll
+        this.pollTimer = setTimeout(poll, POLL_INTERVAL);
+      });
+    };
+
+    // Start the first poll
+    poll();
   }
 
   private stopPolling(): void {
     if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
+      clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
   }
 
   private createFifo(fifoPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const { exec } = require('child_process');
-      exec(`mkfifo "${fifoPath}"`, (err: any) => {
+      const { execFile } = require('child_process');
+      execFile('mkfifo', [fifoPath], (err: any) => {
         if (err) {
           reject(err);
         } else {
@@ -213,26 +232,13 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
   }
 
   send(info: Parameters<typeof serialize>[0]): void {
-    if (!this._connected) {
+    if (!this._connected || !this.outStream) {
       throw new Error('FIFO transport not connected');
     }
 
     const data = serialize(info);
-
-    if (this.outFd !== null) {
-      try {
-        fs.writeSync(this.outFd, data);
-        this.log(`Sent message (sync): cmd=${info.command}, size=${data.length}`);
-      } catch (err: any) {
-        this.log(`Send error: ${err.message}`);
-        throw err;
-      }
-    } else if (this.outStream) {
-      const success = this.outStream.write(data);
-      this.log(`Sent message (async): cmd=${info.command}, success=${success}`);
-    } else {
-      throw new Error('FIFO transport not connected');
-    }
+    const success = this.outStream.write(data);
+    this.log(`Sent message: cmd=${info.command}, size=${data.length}, queued=${!success}`);
   }
 
   close(): void {
@@ -241,14 +247,13 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
     try {
       this.outStream?.destroy();
     } catch {}
+    this.outStream = null;
+    // outFd 已被 outStream.destroy() 关闭（autoClose 默认为 true），不要再 closeSync
+    this.outFd = null;
 
     if (this.inFd !== null) {
       try { fs.closeSync(this.inFd); } catch {}
       this.inFd = null;
-    }
-    if (this.outFd !== null) {
-      try { fs.closeSync(this.outFd); } catch {}
-      this.outFd = null;
     }
 
     try { fs.unlinkSync(this.inFifoPath); } catch {}

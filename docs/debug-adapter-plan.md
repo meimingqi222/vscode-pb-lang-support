@@ -136,7 +136,7 @@ Offset  Size  Field       说明
 | 0 | **Stop**（暂停） | — | — | — |
 | 1 | **Step**（单步） | — | 0=Into / 1=Over / 2=Out | — |
 | 2 | **Run**（继续） | — | — | — |
-| 3 | **BreakPoint** | 1=Add / 2=Remove / 3=Clear | `(fileNum << 16) \| lineNum` | — |
+| 3 | **BreakPoint** | 1=Add / 2=Remove / 3=Clear | `(fileNum << 20) \| lineNum` | — |
 | 4 | **ClearBreakPoints** | — | — | — |
 | 9 | **GetGlobalNames** | — | — | — |
 | 10 | **GetGlobals** | — | — | — |
