@@ -7,50 +7,18 @@
 
 ## Table of Contents
 
-1. [Background and Goals](#1-background-and-goals)
-2. [Technical Principles: PureBasic Debug Protocol](#2-technical-principles-purebasic-debug-protocol)
-3. [Architecture Design](#3-architecture-design)
-4. [File Structure](#4-file-structure)
-5. [Configuration Guide](#5-configuration-guide)
-6. [Key Implementation Points](#6-key-implementation-points)
-7. [Risks and Challenges](#7-risks-and-challenges)
+1. [Technical Principles: PureBasic Debug Protocol](#1-technical-principles-purebasic-debug-protocol)
+2. [Architecture Design](#2-architecture-design)
+3. [File Structure](#3-file-structure)
+4. [Configuration Guide](#4-configuration-guide)
+5. [Key Implementation Points](#5-key-implementation-points)
+6. [Risks and Challenges](#6-risks-and-challenges)
 
 ---
 
-## 1. Background and Goals
+## 1. Technical Principles: PureBasic Debug Protocol
 
-### Current State
-
-vscode-purebasic currently provides language server features (syntax highlighting, completion, hover documentation, diagnostics, etc.), but **does not support debugging**. Users cannot set breakpoints, view variables, or step through PureBasic programs in VSCode.
-
-### Target Capabilities
-
-After implementing solution A (full DAP debug adapter), the following features will be supported:
-
-| Feature | DAP Request/Event |
-|------|--------------|
-| Launch/Attach debug session | `launch` / `attach` |
-| Set/Remove breakpoints | `setBreakpoints` |
-| Continue execution | `continue` |
-| Step (Into / Over / Out) | `next` / `stepIn` / `stepOut` |
-| Pause | `pause` |
-| View call stack | `stackTrace` |
-| View variables (local/global) | `variables` / `scopes` |
-| Expression evaluation (watch window) | `evaluate` |
-| Debug output (Debug Print) | `output` event |
-| Program termination | `terminated` event |
-
-### Why Solution A (Custom DAP Adapter)
-
-- PureBasic uses a **proprietary named pipe protocol** that is incompatible with GDB/LLDB and other generic protocols.
-- The official IDE (PureBasic IDE) communicates with the debuggee through the same protocol, with a complete open-source implementation available for reference.
-- A custom adapter allows full control over protocol details and supports PureBasic-specific types (String, Pointer, etc.).
-
----
-
-## 2. Technical Principles: PureBasic Debug Protocol
-
-### 2.1 Transport Layer
+### 1.1 Transport Layer
 
 The PureBasic debug system supports multiple transport methods, using **two unidirectional channels** for bidirectional communication:
 
@@ -87,7 +55,7 @@ Port: Random available port
 **Connection Order** (applies to all transport methods):
 The debugger must create/listen to the channel before starting the debuggee program.
 
-### 2.2 Message Format: `CommandInfo` Structure
+### 1.2 Message Format: `CommandInfo` Structure
 
 Each message consists of a **fixed 20-byte header** + **variable data**, all fields in little-endian:
 
@@ -104,7 +72,7 @@ Offset  Size  Field       Description
 
 > **Protocol Version: 12**. Both parties exchange versions during handshake; mismatch results in error and disconnection.
 
-### 2.3 Command Set
+### 1.3 Command Set
 
 #### Debugger → Debuggee
 
@@ -139,7 +107,7 @@ Offset  Size  Field       Description
 | 21 | **Locals** | — | — | Variable value list |
 | 34 | **ExpressionResult** | — | — | UTF-8 result string |
 
-### 2.4 History (Call Stack) Data Format
+### 1.4 History (Call Stack) Data Format
 
 The Data section of `History` messages contains consecutive frame records, each with the format:
 
@@ -149,7 +117,7 @@ The Data section of `History` messages contains consecutive frame records, each 
 
 The top frame (current execution location) is first.
 
-### 2.5 Variable Name/Value List Format
+### 1.5 Variable Name/Value List Format
 
 `GlobalNames` / `LocalNames` data section:
 
@@ -177,7 +145,7 @@ N × { value parsed according to type ID }
 | 9 | Pointer | 4B or 8B (depends on target architecture) |
 | 10 | Integer | 4B or 8B (depends on target architecture) |
 
-### 2.6 Compiler Interface
+### 1.6 Compiler Interface
 
 ```bash
 # Method 1: Direct compilation (recommended for debug launch)
@@ -191,7 +159,7 @@ When launching debug, the pipe must be connected after compilation completes and
 
 ---
 
-## 3. Architecture Design
+## 2. Architecture Design
 
 ### Three-Process Model
 
@@ -250,7 +218,7 @@ PB Program hits breakpoint → Stopped event (ID=4) → PipeB
 
 ---
 
-## 4. File Structure
+## 3. File Structure
 
 ```
 src/debug/
@@ -295,9 +263,9 @@ src/debug/
 
 ---
 
-## 5. Configuration Guide
+## 4. Configuration Guide
 
-### 5.1 Minimal Configuration Example
+### 4.1 Minimal Configuration Example
 
 Create `.vscode/launch.json`:
 
@@ -318,7 +286,7 @@ Create `.vscode/launch.json`:
 
 Or launch directly with F5 shortcut (no configuration file needed).
 
-### 5.2 Full Configuration Options
+### 4.2 Full Configuration Options
 
 | Property | Type | Default | Description |
 |------|------|--------|------|
@@ -330,7 +298,7 @@ Or launch directly with F5 shortcut (no configuration file needed).
 | `communication` | string | Auto-generated | Force specify communication ID (advanced option) |
 | `trace` | boolean | `false` | Enable detailed debug logging |
 
-### 5.3 Transport Mode Selection
+### 4.3 Transport Mode Selection
 
 | Mode | Windows | Linux | macOS | Description |
 |------|---------|-------|-------|------|
@@ -342,7 +310,7 @@ Or launch directly with F5 shortcut (no configuration file needed).
 
 **Legend**: ✓ = Verified, ¹ = Expected to work (not verified), - = Not supported
 
-### 5.4 `PB_DEBUGGER_Options` Environment Variable
+### 4.4 `PB_DEBUGGER_Options` Environment Variable
 
 The compiled program receives debug configuration via environment variable:
 
@@ -357,9 +325,9 @@ PB_DEBUGGER_Options: <unicode>;<callOnStart>;<callOnEnd>;<bigEndian>
 
 ---
 
-## 6. Key Implementation Points
+## 5. Key Implementation Points
 
-### 6.1 Channel Connection Order (Critical)
+### 5.1 Channel Connection Order (Critical)
 
 ```
 Debugger Process                    Debuggee Process
@@ -379,7 +347,7 @@ Debugger Process                    Debuggee Process
 
 > **Trap**: If the program is started before creating the channel, it will crash on connection failure. The channel must be created first.
 
-### 6.2 Frame Splitting
+### 5.2 Frame Splitting
 
 All transport methods (Named Pipe, FIFO, TCP) are stream-based and must be manually framed according to the `DataSize` field in the message header:
 
@@ -407,7 +375,7 @@ class MessageBuffer {
 }
 ```
 
-### 6.3 Asynchronous Request-Response Matching
+### 5.3 Asynchronous Request-Response Matching
 
 The PB protocol has no request ID; responses are distinguished by command type. A pending queue must be maintained:
 
@@ -423,7 +391,7 @@ async request(command: PBCommand, responseType: PBEvent, ...): Promise<CommandIn
 
 > **Note**: `GetGlobalNames` and `GetGlobals` need to wait for their respective responses and cannot be sent concurrently (protocol does not support request IDs).
 
-### 6.4 String Type Decoding
+### 5.4 String Type Decoding
 
 PureBasic Strings are transmitted in UTF-16LE encoding in the debug protocol:
 
@@ -437,7 +405,7 @@ function decodeUTF16LEString(buf: Buffer, offset: number): string {
 }
 ```
 
-### 6.5 File Number Mapping
+### 5.5 File Number Mapping
 
 The PB debug protocol uses `fileNum` (integer) to identify files, while DAP uses file paths (URI). A mapping table must be maintained:
 
@@ -450,13 +418,13 @@ private fileNumToPath = new Map<number, string>();
 
 ---
 
-## 7. Risks and Challenges
+## 6. Risks and Challenges
 
 | Risk | Level | Mitigation |
 |------|------|---------|
 | **Pipe direction confirmation**: PipeA/PipeB input/output direction may be opposite from documentation | Medium | Confirm through actual testing after implementation, protocol handshake can verify direction |
 | **Named pipe API**: Node.js on Windows uses `net.createServer('\\\\.\\pipe\\...')` instead of Win32 API | Medium | Use `net` module, server-side `createServer` + `listen`, client-side `createConnection` |
-| **Race condition**: Debuggee may try to connect before debugger connects to channel | Medium | Must create/listen to channel before starting program (see 6.1) |
+| **Race condition**: Debuggee may try to connect before debugger connects to channel | Medium | Must create/listen to channel before starting program (see 5.1) |
 | **String type encoding**: Different PB versions may use different encodings (UTF-16LE vs ASCII) | Low | Distinguish by protocol version, implement UTF-16LE first |
 | **64-bit vs 32-bit**: Integer/Pointer sizes differ | Low | Determine target architecture via `launch.json` config or compiler output |
 | **Compiler path**: `pbcompiler.exe` may not be in PATH in user environment | Low | Provide `compiler` config in `launch.json` with friendly error messages |
