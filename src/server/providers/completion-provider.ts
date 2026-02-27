@@ -634,7 +634,7 @@ function getBaseType(typeStr: string): string {
 }
 
 // 构建结构体索引：结构体名 -> 成员列表
-function buildStructureIndex(document: any, documentCache: Map<string, any>): Map<string, Array<{name: string; type?: string}>> {
+function buildStructureIndex(document: TextDocument, documentCache: Map<string, TextDocument>): Map<string, Array<{name: string; type?: string}>> {
     const map = new Map<string, Array<{name: string; type?: string}>>();
 
     const pushMember = (structName: string, member: {name: string; type?: string}) => {

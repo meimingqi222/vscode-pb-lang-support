@@ -475,7 +475,9 @@ function handleModuleSymbolRename(
             // 声明：Structure/Interface/Enumeration/常量名
             const constMatch = parsePureBasicConstantDefinition(trimmed) || parsePureBasicConstantDeclaration(trimmed);
             if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
-                const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                const constIndex = raw.indexOf('#' + constMatch.name);
+                if (constIndex === -1) continue;
+                const startChar = constIndex + 1;
                 edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } }, newText: newName });
                 continue;
             }

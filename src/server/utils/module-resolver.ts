@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { resolveIncludePath, readFileIfExistsSync, normalizeDirPath } from './fs-utils';
+import { getWorkspaceRootForUri } from '../indexer/workspace-index';
 import { readFileCached } from './file-cache';
 import { generateHash } from './hash-utils';
 import { getErrorHandler } from './error-handler';
@@ -53,6 +54,7 @@ export function parseIncludeFiles(document: TextDocument, documentCache: Map<str
 
     // 当前的 IncludePath 列表（最新的优先）
     const includeDirs: string[] = [];
+    const workspaceRoot = getWorkspaceRootForUri(document.uri);
 
     for (const raw of lines) {
         const line = raw.trim();
@@ -71,10 +73,10 @@ export function parseIncludeFiles(document: TextDocument, documentCache: Map<str
 
         const inc = m[1];
         // 先按原样解析
-        let fullPath = resolveIncludePath(document.uri, inc, includeDirs);
+        let fullPath = resolveIncludePath(document.uri, inc, includeDirs, workspaceRoot);
         // 若未指定扩展名，尝试追加 .pbi
         if (!fullPath && !path.extname(inc)) {
-            fullPath = resolveIncludePath(document.uri, `${inc}.pbi`, includeDirs);
+            fullPath = resolveIncludePath(document.uri, `${inc}.pbi`, includeDirs, workspaceRoot);
         }
         if (fullPath) includeFiles.push(fullPath);
     }

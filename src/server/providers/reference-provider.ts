@@ -10,7 +10,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath } from '../utils/fs-utils';
-import { getWorkspaceFiles } from '../indexer/workspace-index';
+import { getWorkspaceFiles, getWorkspaceRootForUri } from '../indexer/workspace-index';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
 
 /**
@@ -244,6 +244,7 @@ function findReferencesInDocument(
     word: string,
     includeDeclaration: boolean
 ): Location[] {
+    const escapedWord = escapeRegExp(word);
     const text = document.getText();
     const lines = text.split('\n');
     const references: Location[] = [];
@@ -255,7 +256,7 @@ function findReferencesInDocument(
         // 如果包含声明，查找定义
         if (includeDeclaration) {
             // 查找过程定义
-            const procMatch = trimmedLine.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${word})\\s*\\(`, 'i'));
+            const procMatch = trimmedLine.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${escapedWord})\\s*\\(`, 'i'));
             if (procMatch) {
                 const startChar = line.indexOf(procMatch[1]);
                 references.push({
@@ -268,7 +269,7 @@ function findReferencesInDocument(
             }
 
             // 查找结构体定义
-            const structMatch = trimmedLine.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
+            const structMatch = trimmedLine.match(new RegExp(`^Structure\\s+(${escapedWord})\\b`, 'i'));
             if (structMatch) {
                 const startChar = line.indexOf(structMatch[1]);
                 references.push({
@@ -281,7 +282,7 @@ function findReferencesInDocument(
             }
 
             // 查找接口定义
-            const ifaceMatch = trimmedLine.match(new RegExp(`^Interface\\s+(${word})\\b`, 'i'));
+            const ifaceMatch = trimmedLine.match(new RegExp(`^Interface\\s+(${escapedWord})\\b`, 'i'));
             if (ifaceMatch) {
                 const startChar = line.indexOf(ifaceMatch[1]);
                 references.push({
@@ -294,7 +295,7 @@ function findReferencesInDocument(
             }
 
             // 查找枚举定义
-            const enumMatch = trimmedLine.match(new RegExp(`^Enumeration\\s+(${word})\\b`, 'i'));
+            const enumMatch = trimmedLine.match(new RegExp(`^Enumeration\\s+(${escapedWord})\\b`, 'i'));
             if (enumMatch) {
                 const startChar = line.indexOf(enumMatch[1]);
                 references.push({
@@ -322,7 +323,7 @@ function findReferencesInDocument(
             }
 
             // 查找变量定义
-            const varMatch = trimmedLine.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+([^\\s,]+\\s+)?\\*?(${word})(?:\\.\\w+|\\[|\\s|$)`, 'i'));
+            const varMatch = trimmedLine.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+([^\\s,]+\\s+)?\\*?(${escapedWord})(?:\\.\\w+|\\[|\\s|$)`, 'i'));
             if (varMatch) {
                 const varName = varMatch[3];
                 const startChar = line.indexOf(varName, line.indexOf(varMatch[1]));
@@ -426,7 +427,9 @@ function findModuleSymbolReferences(
             const trimmed = raw.trim();
             const constMatch = parsePureBasicConstantDefinition(trimmed) || parsePureBasicConstantDeclaration(trimmed);
             if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
-                const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                const constIndex = raw.indexOf('#' + constMatch.name);
+                if (constIndex === -1) continue;
+                const startChar = constIndex + 1;
                 refs.push({ uri: doc.uri, range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } } });
                 continue;
             }
@@ -465,6 +468,7 @@ function collectSearchDocuments(
     allDocuments: Map<string, TextDocument>,
     maxDepth = 3
 ): Map<string, TextDocument> {
+    const workspaceRoot = getWorkspaceRootForUri(document.uri);
     const result = new Map<string, TextDocument>();
     const visited = new Set<string>();
 
@@ -504,7 +508,7 @@ function collectSearchDocuments(
             const m = line.match(/^\s*(?:X?IncludeFile)\s+\"([^\"]+)\"/i);
             if (!m) continue;
             const inc = m[1];
-            const fsPath = resolveIncludePath(uri, inc, includeDirs);
+            const fsPath = resolveIncludePath(uri, inc, includeDirs, workspaceRoot);
             if (!fsPath) continue;
             const incUri = fsPathToUri(fsPath);
             if (result.has(incUri)) {
