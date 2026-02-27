@@ -57,7 +57,19 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      let inRetryTimer: ReturnType<typeof setTimeout> | null = null;
+      let outRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
       const timeout = setTimeout(() => {
+        // Cancel any pending retry timers to prevent resource leak
+        if (inRetryTimer) {
+          clearTimeout(inRetryTimer);
+          inRetryTimer = null;
+        }
+        if (outRetryTimer) {
+          clearTimeout(outRetryTimer);
+          outRetryTimer = null;
+        }
         reject(new Error('Timeout waiting for FIFO connection'));
       }, 10000);
 
@@ -70,7 +82,7 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
         fs.open(this.inFifoPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK, (err, fd) => {
           if (err) {
             if (err.code === 'ENXIO' || err.code === 'EAGAIN') {
-              setTimeout(tryOpenIn, 100);
+              inRetryTimer = setTimeout(tryOpenIn, 100);
               return;
             }
             clearTimeout(timeout);
@@ -87,7 +99,7 @@ export class FifoTransport extends EventEmitter implements IDebugTransport {
         fs.open(this.outFifoPath, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK, (err, fd) => {
           if (err) {
             if (err.code === 'ENXIO' || err.code === 'EAGAIN') {
-              setTimeout(tryOpenOut, 100);
+              outRetryTimer = setTimeout(tryOpenOut, 100);
               return;
             }
             clearTimeout(timeout);
