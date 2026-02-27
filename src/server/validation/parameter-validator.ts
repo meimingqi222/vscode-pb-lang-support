@@ -51,6 +51,7 @@ export function validateParameters(
 
         // 基本的PureBasic参数模式检查
         // 有效的参数应该以字母、下划线、星号或List/Array/Map关键字开头
+        // 支持模块前缀：Module::Name 格式
         if (!/^(?:[a-zA-Z_]|List\s|Array\s|Map\s|\*)/.test(param)) {
             isValid = false;
         }
@@ -74,8 +75,14 @@ export function validateParameters(
             }
         }
 
-        // 3. 其他明显错误的字符模式（对默认值部分放宽：允许 - + $ # % @ & ）
-        if (/[^a-zA-Z0-9_\s\.\*:=\(\),;"'\-\+\$#%@&]/.test(param)) {
+        // 3. 其他明显错误的字符模式（对默认值部分放宽：允许 - + $ # % @ & : ）
+        // 冒号 : 用于模块前缀 Module::Name
+        if (/[^a-zA-Z0-9_\s\.\*:=\(\),;"'\-\+\$#%@&:]/.test(param)) {
+            isValid = false;
+        }
+
+        // 4. 检查连续的冒号（模块前缀应该是 :: 而不是 ::: 或更多）
+        if (/:::/.test(param)) {
             isValid = false;
         }
 

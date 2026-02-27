@@ -35,7 +35,9 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:purebasic"
+    "onLanguage:purebasic",
+    "onDebugResolve:purebasic",
+    "onDebugAdapterProtocolTracker:purebasic"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -256,11 +258,94 @@
         "language": "purebasic",
         "path": "./snippets/purebasic.json"
       }
+    ],
+    "debuggers": [
+      {
+        "type": "purebasic",
+        "label": "PureBasic",
+        "program": "./out/debug/debugAdapter.js",
+        "runtime": "node",
+        "languages": ["purebasic"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["program"],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path to the PureBasic source file (.pb) to debug.",
+                "default": "${file}"
+              },
+              "compiler": {
+                "type": "string",
+                "description": "Path to pbcompiler executable (platform-specific; default: 'pbcompiler' on PATH).",
+                "default": "pbcompiler"
+              },
+              "transport": {
+                "type": "string",
+                "enum": ["auto", "pipe", "network", "fifo", "native"],
+                "description": "Debugger transport mode. auto = Windows uses pipe, Linux/macOS uses fifo. fifo = named pipes (Linux/macOS only).",
+                "default": "auto"
+              },
+              "debugHost": {
+                "type": "string",
+                "description": "Host used for network debugger transport.",
+                "default": "127.0.0.1"
+              },
+              "debugPort": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 65535,
+                "description": "Port used for network debugger transport (0 = random free port).",
+                "default": 0
+              },
+              "debugPassword": {
+                "type": "string",
+                "description": "Optional password for PureBasic network debugger transport."
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop at the first line of the program.",
+                "default": true
+              },
+              "trace": {
+                "type": "boolean",
+                "description": "Enable verbose adapter trace logging (written to stderr).",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "purebasic",
+            "request": "launch",
+            "name": "Debug PureBasic",
+            "program": "${file}",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "PureBasic: Launch",
+            "description": "Debug the current PureBasic file.",
+            "body": {
+              "type": "purebasic",
+              "request": "launch",
+              "name": "Debug PureBasic",
+              "program": "^\"${1:\\${file}}\"",
+              "stopOnEntry": true
+            }
+          }
+        ]
+      }
+    ],
+    "breakpoints": [
+      { "language": "purebasic" }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run webpack:prod",
-    "compile": "tsc -p ./",
+    "compile": "node ./node_modules/typescript/bin/tsc -p ./",
     "watch": "tsc -w",
     "webpack": "webpack --mode development",
     "webpack:prod": "webpack --mode production --config webpack.config.js",
@@ -271,6 +356,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@vscode/debugadapter": "^1.68.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^7.0.0",
     "vscode-languageserver-textdocument": "^1.0.1",

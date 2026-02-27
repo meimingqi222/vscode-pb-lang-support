@@ -10,6 +10,7 @@ import {
     Range
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { parsePureBasicConstantDefinition } from '../utils/constants';
 
 /**
  * 处理文档符号请求
@@ -233,11 +234,12 @@ export function handleDocumentSymbol(
         }
 
         // 常量定义
-        const constMatch = trimmedLine.match(/^#([a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?)\s*=/i);
-        if (constMatch) {
-            const name = constMatch[1];
-            const hashStart = line.indexOf('#');
-            const nameStart = hashStart >= 0 ? hashStart : Math.max(0, line.indexOf(name));
+        // Use parsePureBasicConstantDefinition to properly exclude inline comments
+        const parsedConstant = parsePureBasicConstantDefinition(trimmedLine);
+        if (parsedConstant) {
+            const name = parsedConstant.name;
+            const start = line.indexOf('#' + name);
+            const nameStart = start >= 0 ? start : Math.max(0, line.indexOf('#'));
             const selectionRange = createSafeRange(i, nameStart, name.length + 1, line.length);
             const declarationRange = createLineRange(i, line.length);
 

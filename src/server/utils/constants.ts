@@ -147,7 +147,9 @@ export const typeSuffixes = [
 ];
 
 const pureBasicConstantNamePattern = '[a-zA-Z_][a-zA-Z0-9_]*(?:[$@]|[.][a-zA-Z]+)?';
-const pureBasicConstantDefinitionRegex = new RegExp(`^#(${pureBasicConstantNamePattern})\\s*=\\s*(.*)$`, 'i');
+// Regex excludes inline comments to avoid capturing them as part of the value
+// Allows semicolons inside quoted strings
+const pureBasicConstantDefinitionRegex = new RegExp(`^#(${pureBasicConstantNamePattern})\\s*=\\s*([^;"]*(?:"[^"]*"[^;"]*)*?)(?:\\s*;.*)?$`, 'i');
 const pureBasicConstantDeclarationRegex = new RegExp(`^#(${pureBasicConstantNamePattern})(?:\\s*=\\s*(.*))?$`, 'i');
 
 export interface ParsedPureBasicConstant {
@@ -163,7 +165,7 @@ export function parsePureBasicConstantDefinition(line: string): ParsedPureBasicC
 
     return {
         name: match[1],
-        value: match[2]
+        value: match[2]?.trim()
     };
 }
 

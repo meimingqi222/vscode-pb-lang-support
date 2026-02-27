@@ -52,6 +52,9 @@ export function activate(context: vscode.ExtensionContext) {
         // Register commands
         registerCommands(context);
 
+        // Register debug configuration provider
+        registerDebugProvider(context);
+
         // Add startup status listener
         console.log('Starting Language Server...');
         client.start().then(() => {
@@ -71,6 +74,35 @@ export function activate(context: vscode.ExtensionContext) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage('Failed to activate PureBasic extension: ' + errorMessage);
     }
+}
+
+function registerDebugProvider(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider('purebasic', {
+            resolveDebugConfiguration(
+                _folder: vscode.WorkspaceFolder | undefined,
+                config: vscode.DebugConfiguration,
+            ): vscode.ProviderResult<vscode.DebugConfiguration> {
+                // If launched via F5 with no launch.json, supply defaults
+                if (!config.type && !config.request && !config.name) {
+                    const editor = vscode.window.activeTextEditor;
+                    if (editor && editor.document.languageId === 'purebasic') {
+                        config.type        = 'purebasic';
+                        config.name        = 'Debug PureBasic';
+                        config.request     = 'launch';
+                        config.program     = editor.document.fileName;
+                        config.stopOnEntry = true;
+                    }
+                }
+                if (!config.program) {
+                    return vscode.window.showInformationMessage(
+                        'Cannot find a PureBasic file to debug. Open a .pb file first.',
+                    ).then(() => undefined);
+                }
+                return config;
+            },
+        }),
+    );
 }
 
 function registerCommands(context: vscode.ExtensionContext) {

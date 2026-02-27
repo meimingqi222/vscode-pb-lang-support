@@ -76,5 +76,40 @@ module.exports = [
         optimization: {
             minimize: false,
         },
+    },
+    // Debug Adapter – runs as a standalone Node.js child process.
+    // Does NOT use the fallback shims because it has full access to Node.js built-ins.
+    {
+        target: 'node',
+        entry: './src/debug/debugAdapter.ts',
+        output: {
+            filename: 'debugAdapter.js',
+            path: path.resolve(__dirname, 'out', 'debug'),
+            libraryTarget: 'commonjs2',
+            devtoolModuleFilenameTemplate: '../../[resource-path]',
+        },
+        externals: {
+            vscode: 'commonjs vscode',
+        },
+        resolve: {
+            extensions: ['.ts', '.js'],
+            mainFields: ['main', 'module'],
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.ts$/,
+                    exclude: /node_modules/,
+                    use: [
+                        {
+                            loader: 'ts-loader',
+                        },
+                    ],
+                },
+            ],
+        },
+        optimization: {
+            minimize: false,
+        },
     }
 ];

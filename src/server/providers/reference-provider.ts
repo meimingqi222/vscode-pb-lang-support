@@ -450,6 +450,7 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+
 /**
  * 收集搜索文档：当前 + 打开 + 递归包含
  */
