@@ -294,7 +294,7 @@ export class PBDebugSession extends DebugSession {
       // For FIFO transport, we need to launch first, then connect
       if (this.transportKind === 'fifo') {
         this.log('FIFO transport: launching program first, then connecting...');
-        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString);
+        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString, this.launchArgs?.stopOnEntry);
         this.debugProc.on('exit', (code, signal) => this.log(`Debuggee exited (code=${code}, signal=${signal})`));
         
         // Log process events
@@ -316,7 +316,7 @@ export class PBDebugSession extends DebugSession {
         this.log('FIFOs connected');
       } else {
         // Network/Pipe transport: connect first, then launch
-        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString);
+        this.debugProc = this.launcher.launch(this.compileResult.executablePath, commString, this.launchArgs?.stopOnEntry);
         this.debugProc.on('exit', (code, signal) => this.log(`Debuggee exited (code=${code}, signal=${signal})`));
         
         // Log process events
