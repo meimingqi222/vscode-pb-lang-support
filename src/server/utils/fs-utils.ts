@@ -93,7 +93,7 @@ export function resolveIncludePath(
   // When workspaceRoot is provided, validate against it for path traversal protection.
   // When no workspace (single file mode), trust fromDir and allow natural relative resolution.
   if (workspaceRoot) {
-    if (isPathAllowed(relativeResolved, [workspaceRoot])) {
+    if (isPathAllowed(relativeResolved, allowedRoots)) {
       candList.push(relativeResolved);
     }
   } else {
