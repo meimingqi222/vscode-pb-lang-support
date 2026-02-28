@@ -25,7 +25,7 @@ export function getWorkspaceRootForUri(uri: string): string | undefined {
       return root;
     }
   }
-  return roots[0];
+  return undefined;
 }
 
 export function getWorkspaceFiles(): string[] {
