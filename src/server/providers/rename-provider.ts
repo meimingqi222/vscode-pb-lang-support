@@ -330,6 +330,18 @@ function handleModuleFunctionRename(
             const moduleCallRegex = new RegExp(`\\b${escapeRegExp(moduleName)}::${escapeRegExp(functionName)}\\b`, 'gi');
             let match;
             while ((match = moduleCallRegex.exec(line)) !== null) {
+                // 跳过注释中的匹配
+                if (line.substring(0, match.index).includes(';')) {
+                    continue;
+                }
+
+                // 跳过字符串中的匹配
+                const beforeMatch = line.substring(0, match.index);
+                const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                if (quoteCount % 2 === 1) {
+                    continue;
+                }
+
                 const functionStart = match.index + moduleName.length + 2; // +2 for '::'
                 edits.push({
                     uri: doc.uri,
@@ -463,6 +475,18 @@ function handleModuleSymbolRename(
             const re = new RegExp(`\\b${escapeRegExp(moduleName)}::#?${escapeRegExp(ident)}\\b`, 'g');
             let m: RegExpExecArray | null;
             while ((m = re.exec(raw)) !== null) {
+                // 跳过注释中的匹配
+                if (raw.substring(0, m.index).includes(';')) {
+                    continue;
+                }
+
+                // 跳过字符串中的匹配
+                const beforeMatch = raw.substring(0, m.index);
+                const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                if (quoteCount % 2 === 1) {
+                    continue;
+                }
+
                 const identStart = m.index + moduleName.length + 2 + (raw[m.index + moduleName.length + 2] === '#' ? 1 : 0);
                 edits.push({ range: { start: { line: i, character: identStart }, end: { line: i, character: identStart + ident.length } }, newText: newName });
             }
@@ -618,6 +642,18 @@ function handleStructMemberRename(
             if (inStruct) {
                 const mm = line.match(new RegExp(`^(?:\\*?)(${escapedMemberName})(?:\\.|\\s|$)`));
                 if (mm) {
+                    // 跳过注释中的匹配
+                    if (raw.substring(0, raw.indexOf(mm[1])).includes(';')) {
+                        continue;
+                    }
+
+                    // 跳过字符串中的匹配
+                    const beforeMatch = raw.substring(0, raw.indexOf(mm[1]));
+                    const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                    if (quoteCount % 2 === 1) {
+                        continue;
+                    }
+
                     const startChar = raw.indexOf(mm[1]);
                     edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + memberName.length } }, newText: newName });
                 }
@@ -633,6 +669,18 @@ function handleStructMemberRename(
                     const re = new RegExp(`\\b\\*?${escapeRegExp(v)}(?:\\([^)]*\\))?\\\\${escapedMemberName}\\b`, 'g');
                     let m: RegExpExecArray | null;
                     while ((m = re.exec(raw)) !== null) {
+                        // 跳过注释中的匹配
+                        if (raw.substring(0, m.index).includes(';')) {
+                            continue;
+                        }
+
+                        // 跳过字符串中的匹配
+                        const beforeMatch = raw.substring(0, m.index);
+                        const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                        if (quoteCount % 2 === 1) {
+                            continue;
+                        }
+
                         // 计算成员名起始：在匹配片段内找到第一个反斜杠位置
                         const matchStart = m.index;
                         const matchedText = raw.substring(matchStart, matchStart + m[0].length);

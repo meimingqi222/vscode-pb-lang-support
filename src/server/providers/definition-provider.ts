@@ -227,9 +227,9 @@ function findDefinitionsInIncludes(
     const text = document.getText();
     const lines = text.split('\n');
 
-    // 查找IncludeFile语句
+    // 查找 IncludeFile / XIncludeFile 语句
     for (const line of lines) {
-        const includeMatch = line.match(/IncludeFile\s+"([^"]+)"/i);
+        const includeMatch = line.match(/^\s*(?:X?IncludeFile)\s+"([^"]+)"/i);
         if (includeMatch) {
             const includePath = includeMatch[1];
 
@@ -566,6 +566,18 @@ function findStructureMemberDefinition(
             if (inStruct) {
                 const mm = line.match(new RegExp(`^(?:\\*?)(${escapedMemberName})\\b`));
                 if (mm) {
+                    // 跳过注释中的匹配
+                    if (raw.substring(0, raw.indexOf(mm[1])).includes(';')) {
+                        continue;
+                    }
+
+                    // 跳过字符串中的匹配
+                    const beforeMatch = raw.substring(0, raw.indexOf(mm[1]));
+                    const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                    if (quoteCount % 2 === 1) {
+                        continue;
+                    }
+
                     const startChar = raw.indexOf(mm[1]);
                     matches.push({
                         uri: doc.uri,

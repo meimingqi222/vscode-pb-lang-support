@@ -154,6 +154,11 @@ export class OptimizedSymbolParser {
         for (let i = 0; i < maxLinesToScan; i++) {
             const line = lines[i].trim();
 
+            // 跳过注释行
+            if (line.startsWith(';')) {
+                continue;
+            }
+
             // 只解析过程定义（最重要的符号）
             const procMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (procMatch) {
@@ -206,6 +211,11 @@ export class OptimizedSymbolParser {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
+
+            // 跳过注释行
+            if (line.startsWith(';')) {
+                continue;
+            }
 
             // 解析过程定义
             const procMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);

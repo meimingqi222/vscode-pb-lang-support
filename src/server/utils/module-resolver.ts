@@ -223,6 +223,11 @@ function extractModuleFunctions(text: string, moduleName: string): ModuleFunctio
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
+
         // 检查DeclareModule开始
         const declareModuleMatch = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
         if (declareModuleMatch) {
@@ -326,6 +331,11 @@ function extractModuleExports(text: string, moduleName: string): {
     for (let i = 0; i < lines.length; i++) {
         const raw = lines[i];
         const line = raw.trim();
+
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
 
         // 声明和实现范围
         const declStart = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
@@ -459,6 +469,11 @@ function extractModuleNames(text: string): string[] {
 
     for (const line of lines) {
         const trimmedLine = line.trim();
+
+        // 跳过注释行
+        if (trimmedLine.startsWith(';')) {
+            continue;
+        }
 
         // 匹配 DeclareModule ModuleName
         const declareMatch = trimmedLine.match(/^DeclareModule\s+(\w+)/i);
