@@ -46,8 +46,10 @@ export function readFileCached(filePath: string): string | null {
       return cached.content;
     }
 
-    // 清理旧缓存
-    evictOldestIfNeeded();
+    // 只有添加新条目时才清理，更新已有条目（即使已过期）不触发驱逐
+    if (!cached) {
+      evictOldestIfNeeded();
+    }
 
     const content = fs.readFileSync(filePath, 'utf8');
     fileCache.set(filePath, { mtimeMs, content, lastAccess: now });
