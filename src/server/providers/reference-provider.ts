@@ -12,6 +12,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath } from '../utils/fs-utils';
 import { getWorkspaceFiles, getWorkspaceRootForUri } from '../indexer/workspace-index';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
+import { escapeRegExp } from '../utils/string-utils';
 
 /**
  * 处理引用请求
@@ -454,11 +455,6 @@ function findModuleSymbolReferences(
 function normalizeConstantName(name: string): string {
     return name.replace(/[.$@]+$/, '').toLowerCase();
 }
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 
 /**
  * 收集搜索文档：当前 + 打开 + 递归包含

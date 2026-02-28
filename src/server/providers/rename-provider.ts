@@ -14,13 +14,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
-
-/**
- * 转义正则表达式特殊字符
- */
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '../utils/string-utils';
 
 /**
  * 准备重命名 - 检查是否可以重命名

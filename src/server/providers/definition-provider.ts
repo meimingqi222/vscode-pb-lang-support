@@ -15,6 +15,7 @@ import { readFileIfExistsSync, resolveIncludePath, fsPathToUri, normalizeDirPath
 import { getWorkspaceFiles, getWorkspaceRootForUri } from '../indexer/workspace-index';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
+import { escapeRegExp } from '../utils/string-utils';
 
 /**
  * 处理定义请求
@@ -507,10 +508,6 @@ function findModuleSymbolDefinition(
 
 function normalizeConstantName(name: string): string {
     return name.replace(/[.$@]+$/, '').toLowerCase();
-}
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

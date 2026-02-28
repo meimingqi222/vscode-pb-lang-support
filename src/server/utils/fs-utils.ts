@@ -88,13 +88,16 @@ export function resolveIncludePath(
     }
   }
 
-  // Relative to current document directory - validate to prevent traversal
+  // Relative to current document directory
   const relativeResolved = path.resolve(fromDir, includeRelPath);
-  // Allow paths within workspaceRoot (if provided) or fromDir
-  const isAllowed = workspaceRoot
-    ? isPathAllowed(relativeResolved, [workspaceRoot])
-    : isPathAllowed(relativeResolved, [fromDir]);
-  if (isAllowed) {
+  // When workspaceRoot is provided, validate against it for path traversal protection.
+  // When no workspace (single file mode), trust fromDir and allow natural relative resolution.
+  if (workspaceRoot) {
+    if (isPathAllowed(relativeResolved, [workspaceRoot])) {
+      candList.push(relativeResolved);
+    }
+  } else {
+    // No workspace - allow relative paths (../ is a core PureBasic feature)
     candList.push(relativeResolved);
   }
 

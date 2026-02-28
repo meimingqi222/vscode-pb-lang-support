@@ -12,10 +12,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getModuleFunctionCompletions as getModuleFunctions } from '../utils/module-resolver';
 import { getActiveUsedModules } from '../utils/scope-manager';
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '../utils/string-utils';
 
 /**
  * 处理签名帮助请求

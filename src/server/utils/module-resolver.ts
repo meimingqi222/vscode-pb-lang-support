@@ -12,10 +12,7 @@ import { readFileCached } from './file-cache';
 import { generateHash } from './hash-utils';
 import { getErrorHandler } from './error-handler';
 import { parsePureBasicConstantDeclaration } from './constants';
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from './string-utils';
 
 export interface ModuleFunction {
     name: string;

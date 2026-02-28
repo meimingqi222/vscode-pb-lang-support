@@ -61,3 +61,10 @@ export function isPositionInString(line: string, position: number): boolean {
 
     return inString;
 }
+
+/**
+ * Escapes special regex characters in a string
+ */
+export function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
