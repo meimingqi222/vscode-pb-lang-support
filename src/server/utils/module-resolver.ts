@@ -5,11 +5,14 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { resolveIncludePath, readFileIfExistsSync, normalizeDirPath } from './fs-utils';
+import { getWorkspaceRootForUri } from '../indexer/workspace-index';
 import { readFileCached } from './file-cache';
 import { generateHash } from './hash-utils';
-import { withErrorHandling, getErrorHandler } from './error-handler';
+import { getErrorHandler } from './error-handler';
 import { parsePureBasicConstantDeclaration } from './constants';
+import { escapeRegExp } from './string-utils';
 
 export interface ModuleFunction {
     name: string;
@@ -32,9 +35,9 @@ export interface ModuleInfo {
 /**
  * 解析文档中的IncludeFile引用
  */
-const includeCache = new WeakMap<any, { hash: string; files: string[] }>();
+const includeCache = new WeakMap<TextDocument, { hash: string; files: string[] }>();
 
-export function parseIncludeFiles(document: any, documentCache: Map<string, any>): string[] {
+export function parseIncludeFiles(document: TextDocument, documentCache: Map<string, TextDocument>): string[] {
     const includeFiles: string[] = [];
     const text = document.getText();
     const lines = text.split('\n');
@@ -52,6 +55,7 @@ export function parseIncludeFiles(document: any, documentCache: Map<string, any>
 
     // 当前的 IncludePath 列表（最新的优先）
     const includeDirs: string[] = [];
+    const workspaceRoot = getWorkspaceRootForUri(document.uri);
 
     for (const raw of lines) {
         const line = raw.trim();
@@ -70,10 +74,10 @@ export function parseIncludeFiles(document: any, documentCache: Map<string, any>
 
         const inc = m[1];
         // 先按原样解析
-        let fullPath = resolveIncludePath(document.uri, inc, includeDirs);
+        let fullPath = resolveIncludePath(document.uri, inc, includeDirs, workspaceRoot);
         // 若未指定扩展名，尝试追加 .pbi
         if (!fullPath && !path.extname(inc)) {
-            fullPath = resolveIncludePath(document.uri, `${inc}.pbi`, includeDirs);
+            fullPath = resolveIncludePath(document.uri, `${inc}.pbi`, includeDirs, workspaceRoot);
         }
         if (fullPath) includeFiles.push(fullPath);
     }
@@ -105,8 +109,8 @@ function readDocumentFromPath(filePath: string): string | null {
  */
 export function getModuleFunctionCompletions(
     moduleName: string,
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): ModuleFunction[] {
     const functions: ModuleFunction[] = [];
 
@@ -138,35 +142,23 @@ export function getModuleFunctionCompletions(
         functions.push(...moduleFunctions);
     }
 
-    // 去重（根据函数名）
-    const uniqueFunctions = functions.reduce((acc, current) => {
-        const existing = acc.find(f => f.name === current.name);
-        if (!existing) {
-            acc.push(current);
+    // 去重（根据函数名）- 使用 Map 实现 O(n) 复杂度
+    const uniqueFunctionsMap = new Map<string, ModuleFunction>();
+    for (const func of functions) {
+        if (!uniqueFunctionsMap.has(func.name)) {
+            uniqueFunctionsMap.set(func.name, func);
         }
-        return acc;
-    }, [] as ModuleFunction[]);
-
-    return uniqueFunctions;
-}
-
-// 错误处理包装器
-const safeGetModuleFunctionCompletions = (moduleName: string, document: any, documentCache: Map<string, any>) => {
-    try {
-        return getModuleFunctionCompletions(moduleName, document, documentCache);
-    } catch (error) {
-        console.error('Module function completion error:', error);
-        return [];
     }
-};
+    return Array.from(uniqueFunctionsMap.values());
+}
 
 /**
  * 获取模块导出（函数/常量/结构）
  */
 export function getModuleExports(
     moduleName: string,
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): ModuleInfo {
     const info: ModuleInfo = {
         name: moduleName,
@@ -221,6 +213,7 @@ export function getModuleExports(
  * 从文档文本中提取指定模块的函数
  */
 function extractModuleFunctions(text: string, moduleName: string): ModuleFunction[] {
+    const escapedModuleName = escapeRegExp(moduleName);
     const functions: ModuleFunction[] = [];
     const lines = text.split('\n');
 
@@ -230,15 +223,20 @@ function extractModuleFunctions(text: string, moduleName: string): ModuleFunctio
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
+
         // 检查DeclareModule开始
-        const declareModuleMatch = line.match(new RegExp(`^DeclareModule\\s+${moduleName}\\b`, 'i'));
+        const declareModuleMatch = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
         if (declareModuleMatch) {
             inDeclareModule = true;
             continue;
         }
 
         // 检查Module开始
-        const moduleStartMatch = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+        const moduleStartMatch = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
         if (moduleStartMatch) {
             inModule = true;
             continue;
@@ -319,6 +317,7 @@ function extractModuleExports(text: string, moduleName: string): {
     interfaces?: Array<{name: string}>;
     enumerations?: Array<{name: string}>;
 } {
+    const escapedModuleName = escapeRegExp(moduleName);
     const functions: ModuleFunction[] = [];
     const constants: Array<{name: string, value?: string}> = [];
     const structures: Array<{name: string}> = [];
@@ -333,12 +332,17 @@ function extractModuleExports(text: string, moduleName: string): {
         const raw = lines[i];
         const line = raw.trim();
 
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
+
         // 声明和实现范围
-        const declStart = line.match(new RegExp(`^DeclareModule\\s+${moduleName}\\b`, 'i'));
+        const declStart = line.match(new RegExp(`^DeclareModule\\s+${escapedModuleName}\\b`, 'i'));
         if (declStart) { inDeclareModule = true; continue; }
         if (line.match(/^EndDeclareModule\b/i)) { inDeclareModule = false; continue; }
 
-        const modStart = line.match(new RegExp(`^Module\\s+${moduleName}\\b`, 'i'));
+        const modStart = line.match(new RegExp(`^Module\\s+${escapedModuleName}\\b`, 'i'));
         if (modStart) { inModule = true; continue; }
         if (line.match(/^EndModule\b/i)) { inModule = false; continue; }
 
@@ -422,8 +426,8 @@ function extractModuleExports(text: string, moduleName: string): {
  * 获取所有可用的模块
  */
 export function getAvailableModules(
-    document: any,
-    documentCache: Map<string, any>
+    document: TextDocument,
+    documentCache: Map<string, TextDocument>
 ): string[] {
     const modules: Set<string> = new Set();
     const searchDocuments: Array<{text: string}> = [];
@@ -465,6 +469,11 @@ function extractModuleNames(text: string): string[] {
 
     for (const line of lines) {
         const trimmedLine = line.trim();
+
+        // 跳过注释行
+        if (trimmedLine.startsWith(';')) {
+            continue;
+        }
 
         // 匹配 DeclareModule ModuleName
         const declareMatch = trimmedLine.match(/^DeclareModule\s+(\w+)/i);

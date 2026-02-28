@@ -39,8 +39,13 @@ export function parseIncludeFiles(document: TextDocument, baseDirectory: string 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
+
         // 解析XIncludeFile指令
-        const includeMatch = line.match(/XIncludeFile\s+["']([^"']+)["']/);
+        const includeMatch = line.match(/^XIncludeFile\s+["']([^"']+)["']/i);
         if (includeMatch) {
             const includePath = includeMatch[1];
             const resolvedPath = resolveIncludePath(includePath, baseDirectory);
@@ -57,7 +62,7 @@ export function parseIncludeFiles(document: TextDocument, baseDirectory: string 
         }
 
         // 解析Include指令（兼容旧语法）
-        const oldIncludeMatch = line.match(/IncludeFile\s+["']([^"']+)["']/);
+        const oldIncludeMatch = line.match(/^IncludeFile\s+["']([^"']+)["']/i);
         if (oldIncludeMatch) {
             const includePath = oldIncludeMatch[1];
             const resolvedPath = resolveIncludePath(includePath, baseDirectory);
@@ -74,7 +79,7 @@ export function parseIncludeFiles(document: TextDocument, baseDirectory: string 
         }
 
         // 解析条件包含
-        const conditionalMatch = line.match(/If\s+\w+\s*:\s*XIncludeFile\s+["']([^"']+)["']/);
+        const conditionalMatch = line.match(/^If\s+\w+\s*:\s*XIncludeFile\s+["']([^"']+)["']/i);
         if (conditionalMatch) {
             const includePath = conditionalMatch[1];
             const resolvedPath = resolveIncludePath(includePath, baseDirectory);
@@ -112,6 +117,11 @@ export function parseIncludedSymbols(document: TextDocument): Map<string, any> {
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
+
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
 
         // 解析过程定义
         if (line.startsWith('Procedure') || line.startsWith('Procedure.')) {

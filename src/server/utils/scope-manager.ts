@@ -60,6 +60,11 @@ export function analyzeScopesAndVariables(text: string, currentLine: number): {
         const line = lines[i].trim();
         const originalLine = lines[i];
 
+        // 跳过注释行
+        if (line.startsWith(';')) {
+            continue;
+        }
+
         // 检查作用域开始
         const scopeStart = detectScopeStart(line, i);
         if (scopeStart) {
@@ -78,6 +83,8 @@ export function analyzeScopesAndVariables(text: string, currentLine: number): {
 
         // 解析变量定义
         const currentScope = scopeStack[scopeStack.length - 1];
+        if (!currentScope) continue; // 安全检查
+
         const variablesInLine = parseVariablesInLine(line, i, currentScope);
         variables.push(...variablesInLine);
 

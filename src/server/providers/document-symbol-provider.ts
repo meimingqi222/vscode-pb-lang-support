@@ -40,6 +40,7 @@ export function handleDocumentSymbol(
         const moduleMatch = trimmedLine.match(/^Module\s+(\w+)\b/i);
         if (moduleMatch) {
             const name = moduleMatch[1];
+            // 使用原始行的 indexOf 来获取正确位置（考虑缩进）
             const nameStart = Math.max(0, line.indexOf(name));
             const selectionRange = createSafeRange(i, nameStart, name.length, line.length);
             const blockRange: Range = {
@@ -387,4 +388,7 @@ function updateSymbolEnd(symbol: DocumentSymbol, lines: string[], endPattern: Re
             return;
         }
     }
+    // 如果找不到结束标记，默认到文件末尾或起始行
+    const endLine = Math.max(startLine, lines.length - 1);
+    symbol.range.end = { line: endLine, character: lines[endLine]?.length || 0 };
 }

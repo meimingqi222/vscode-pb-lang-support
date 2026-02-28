@@ -17,6 +17,17 @@ export function setWorkspaceRoots(uris: string[]) {
   lastBuild = 0;
 }
 
+export function getWorkspaceRootForUri(uri: string): string | undefined {
+  const fsPath = path.normalize(uriToFsPath(uri));
+  for (const root of roots) {
+    const normalizedRoot = path.normalize(root);
+    if (fsPath === normalizedRoot || fsPath.startsWith(normalizedRoot + path.sep)) {
+      return root;
+    }
+  }
+  return undefined;
+}
+
 export function getWorkspaceFiles(): string[] {
   const now = Date.now();
   if (now - lastBuild > REBUILD_INTERVAL_MS) {

@@ -4,6 +4,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 
 let client: LanguageClient;
 let debugChannel: vscode.OutputChannel;
+let fileWatcher: vscode.FileSystemWatcher;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('PureBasic extension is now active!');
@@ -32,13 +33,17 @@ export function activate(context: vscode.ExtensionContext) {
             }
         };
 
+        // Create file watcher first, before using it in clientOptions
+        fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pb,pbi,pbp}');
+        context.subscriptions.push(fileWatcher);
+
         const clientOptions: LanguageClientOptions = {
             documentSelector: [
                 { scheme: 'file', language: 'purebasic' }
             ],
             synchronize: {
                 configurationSection: 'purebasic',
-                fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{pb,pbi,pbp}')
+                fileEvents: fileWatcher
             }
         };
 
@@ -172,12 +177,15 @@ function registerCommands(context: vscode.ExtensionContext) {
 function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 export function deactivate(): Thenable<void> | undefined {
+    // fileWatcher is disposed automatically via context.subscriptions
+    // No need to manually dispose here
+
     if (!client) {
         return undefined;
     }

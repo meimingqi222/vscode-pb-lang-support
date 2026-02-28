@@ -57,35 +57,7 @@ export class OptimizedSymbolParser {
         return result;
     }
 
-    /**
-     * 增量更新文档符号
-     */
-    async updateDocumentSymbolsIncrementally(
-        uri: string,
-        newText: string,
-        oldText: string
-    ): Promise<ParsedDocument> {
-        const existingSymbols = symbolCache.getSymbols(uri);
 
-        // 简单的增量解析 - 直接重新解析
-        const symbols = this.parseBasicSymbols(newText);
-
-        const result: ParsedDocument = {
-            symbols,
-            metrics: {
-                parseTime: performance.now(),
-                symbolCount: symbols.length,
-                cacheHits: existingSymbols ? 1 : 0,
-                memoryUsage: JSON.stringify(symbols).length
-            },
-            strategy: 'incremental'
-        };
-
-        // 更新缓存
-        symbolCache.setSymbols(uri, result.symbols);
-
-        return result;
-    }
 
     /**
      * 批量解析多个文档（优化性能）
@@ -171,16 +143,7 @@ export class OptimizedSymbolParser {
         };
     }
 
-    private async parseIncrementally(uri: string, text: string, preAnalysis: any): Promise<ParsedDocument> {
-        const oldText = this.lastParsedVersions.get(uri) || '';
-        this.lastParsedVersions.set(uri, text);
 
-        if (oldText && oldText !== text) {
-            return await this.updateDocumentSymbolsIncrementally(uri, text, oldText);
-        } else {
-            return await this.parseFull(uri, text, preAnalysis);
-        }
-    }
 
     private async parseMinimalSymbols(uri: string, text: string, preAnalysis: any): Promise<ParsedDocument> {
         // 最小化解析 - 只解析关键符号
@@ -190,6 +153,11 @@ export class OptimizedSymbolParser {
 
         for (let i = 0; i < maxLinesToScan; i++) {
             const line = lines[i].trim();
+
+            // 跳过注释行
+            if (line.startsWith(';')) {
+                continue;
+            }
 
             // 只解析过程定义（最重要的符号）
             const procMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
@@ -243,6 +211,11 @@ export class OptimizedSymbolParser {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
+
+            // 跳过注释行
+            if (line.startsWith(';')) {
+                continue;
+            }
 
             // 解析过程定义
             const procMatch = line.match(/^Procedure\s*(?:\.(\w+))?\s*([a-zA-Z_][a-zA-Z0-9_]*)/);

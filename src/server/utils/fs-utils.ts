@@ -35,32 +35,77 @@ export function readFileIfExistsSync(filePath: string): string | null {
   return null;
 }
 
+/**
+ * Validates that a resolved path doesn't escape outside allowed directories
+ */
+function isPathAllowed(resolvedPath: string, allowedRoots: string[]): boolean {
+  const normalizedPath = path.normalize(resolvedPath);
+  for (const root of allowedRoots) {
+    const normalizedRoot = path.normalize(root);
+    // Check exact match or directory boundary to prevent false positives
+    // e.g., /home/user/project should NOT match /home/user/project-malicious
+    if (normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + path.sep)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function resolveIncludePath(
   fromDocumentUri: string,
   includeRelPath: string,
-  includeDirs: string[] = []
+  includeDirs: string[] = [],
+  workspaceRoot?: string
 ): string | null {
   const fromFs = uriToFsPath(fromDocumentUri);
   const fromDir = path.dirname(fromFs);
 
+  // Build allowed root directories for path traversal protection
+  const allowedRoots: string[] = [fromDir];
+  if (workspaceRoot) {
+    allowedRoots.push(workspaceRoot);
+  }
+  for (const dir of includeDirs) {
+    if (dir) allowedRoots.push(path.normalize(dir));
+  }
+
   const candList: string[] = [];
 
-  // Absolute include provided
+  // Absolute include provided - validate against allowed roots
   if (path.isAbsolute(includeRelPath)) {
-    candList.push(includeRelPath);
+    const resolved = path.resolve(includeRelPath);
+    if (isPathAllowed(resolved, allowedRoots)) {
+      candList.push(resolved);
+    }
   }
 
   // Search using provided IncludePath directories (most recent first)
   for (const dir of includeDirs) {
     if (!dir) continue;
-    candList.push(path.resolve(dir, includeRelPath));
+    const resolved = path.resolve(dir, includeRelPath);
+    if (isPathAllowed(resolved, allowedRoots)) {
+      candList.push(resolved);
+    }
   }
 
   // Relative to current document directory
-  candList.push(path.resolve(fromDir, includeRelPath));
+  const relativeResolved = path.resolve(fromDir, includeRelPath);
+  // When workspaceRoot is provided, validate against it for path traversal protection.
+  // When no workspace (single file mode), trust fromDir and allow natural relative resolution.
+  if (workspaceRoot) {
+    if (isPathAllowed(relativeResolved, allowedRoots)) {
+      candList.push(relativeResolved);
+    }
+  } else {
+    // No workspace - allow relative paths (../ is a core PureBasic feature)
+    candList.push(relativeResolved);
+  }
 
-  // As-is relative to CWD (rare in LSP), keep last
-  candList.push(path.resolve(includeRelPath));
+  // As-is relative to CWD (rare in LSP), keep last - only if in allowed roots
+  const cwdResolved = path.resolve(includeRelPath);
+  if (isPathAllowed(cwdResolved, allowedRoots)) {
+    candList.push(cwdResolved);
+  }
 
   for (const cand of candList) {
     try {

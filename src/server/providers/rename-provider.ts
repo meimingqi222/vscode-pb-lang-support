@@ -14,6 +14,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeScopesAndVariables } from '../utils/scope-manager';
 import { parsePureBasicConstantDefinition, parsePureBasicConstantDeclaration } from '../utils/constants';
+import { escapeRegExp } from '../utils/string-utils';
 
 /**
  * 准备重命名 - 检查是否可以重命名
@@ -40,7 +41,7 @@ export function handlePrepareRename(
 
     // 检查是否是可重命名的符号
     if (isRenameableSymbol(word, document, documentCache, position)) {
-        const range = getWordRange(line, position.character);
+        const range = getWordRange(line, position.line, position.character);
         return {
             range,
             placeholder: word
@@ -167,8 +168,11 @@ function getWordAtPosition(line: string, character: number): string | null {
 
 /**
  * 获取单词的范围
+ * @param line 当前行文本
+ * @param lineNum 行号（0-based）
+ * @param character 字符位置
  */
-function getWordRange(line: string, character: number): Range {
+function getWordRange(line: string, lineNum: number, character: number): Range {
     let start = character;
     let end = character;
 
@@ -181,8 +185,8 @@ function getWordRange(line: string, character: number): Range {
     }
 
     return {
-        start: { line: 0, character: start },
-        end: { line: 0, character: end }
+        start: { line: lineNum, character: start },
+        end: { line: lineNum, character: end }
     };
 }
 
@@ -229,6 +233,7 @@ function isUserDefinedSymbol(
     documentCache: Map<string, TextDocument>,
     position: Position
 ): boolean {
+    const escapedWord = escapeRegExp(word);
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
     for (const doc of searchDocuments) {
@@ -239,13 +244,13 @@ function isUserDefinedSymbol(
             const line = lines[i].trim();
 
             // 检查过程定义
-            const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${word})\\s*\\(`, 'i'));
+            const procMatch = line.match(new RegExp(`^Procedure(?:\\.\\w+)?\\s+(${escapedWord})\\s*\\(`, 'i'));
             if (procMatch) {
                 return true;
             }
 
             // 检查变量定义
-            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${word})(?:\\.\\w+)?`, 'i'));
+            const varMatch = line.match(new RegExp(`^(Global|Protected|Static|Define|Dim)\\s+(?:\\w+\\s+)?(\\*?${escapedWord})(?:\\.\\w+)?`, 'i'));
             if (varMatch) {
                 return true;
             }
@@ -257,13 +262,13 @@ function isUserDefinedSymbol(
             }
 
             // 检查结构体定义
-            const structMatch = line.match(new RegExp(`^Structure\\s+(${word})\\b`, 'i'));
+            const structMatch = line.match(new RegExp(`^Structure\\s+(${escapedWord})\\b`, 'i'));
             if (structMatch) {
                 return true;
             }
 
             // 检查模块定义
-            const moduleMatch = line.match(new RegExp(`^Module\\s+(${word})\\b`, 'i'));
+            const moduleMatch = line.match(new RegExp(`^Module\\s+(${escapedWord})\\b`, 'i'));
             if (moduleMatch) {
                 return true;
             }
@@ -316,14 +321,27 @@ function handleModuleFunctionRename(
     for (const doc of searchDocuments) {
         const text = doc.getText();
         const lines = text.split('\n');
+        let inModule = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
 
             // 查找模块调用 Module::Function
-            const moduleCallRegex = new RegExp(`\\b${moduleName}::${functionName}\\b`, 'gi');
+            const moduleCallRegex = new RegExp(`\\b${escapeRegExp(moduleName)}::${escapeRegExp(functionName)}\\b`, 'gi');
             let match;
             while ((match = moduleCallRegex.exec(line)) !== null) {
+                // 跳过注释中的匹配
+                if (line.substring(0, match.index).includes(';')) {
+                    continue;
+                }
+
+                // 跳过字符串中的匹配
+                const beforeMatch = line.substring(0, match.index);
+                const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                if (quoteCount % 2 === 1) {
+                    continue;
+                }
+
                 const functionStart = match.index + moduleName.length + 2; // +2 for '::'
                 edits.push({
                     uri: doc.uri,
@@ -334,19 +352,22 @@ function handleModuleFunctionRename(
                 });
             }
 
-            // 查找模块内的函数定义
-            let inModule = false;
-            const moduleStartMatch = line.match(new RegExp(`^\\s*Module\\s+${moduleName}\\b`, 'i'));
+            // 检查模块开始
+            const moduleStartMatch = line.match(new RegExp(`^\\s*Module\\s+${escapeRegExp(moduleName)}\\b`, 'i'));
             if (moduleStartMatch) {
                 inModule = true;
+                continue;
             }
 
+            // 检查模块结束
             if (line.match(/^\s*EndModule\b/i)) {
                 inModule = false;
+                continue;
             }
 
+            // 在模块内查找函数定义
             if (inModule) {
-                const procMatch = line.match(new RegExp(`^\\s*Procedure(?:\\.\\w+)?\\s+(${functionName})\\s*\\(`, 'i'));
+                const procMatch = line.match(new RegExp(`^\\s*Procedure(?:\\.\\w+)?\\s+(${escapeRegExp(functionName)})\\s*\\(`, 'i'));
                 if (procMatch) {
                     const startChar = line.indexOf(procMatch[1]);
                     edits.push({
@@ -399,7 +420,7 @@ function findAllOccurrences(
             const line = lines[i];
 
             // 使用单词边界匹配
-            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+            const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
             let match;
             while ((match = regex.exec(line)) !== null) {
                 // 跳过注释中的匹配
@@ -451,9 +472,21 @@ function handleModuleSymbolRename(
             const trimmed = raw.trim();
 
             // 使用处：Module::ident / Module::#ident
-            const re = new RegExp(`\\b${moduleName}::#?${ident}\\b`, 'g');
+            const re = new RegExp(`\\b${escapeRegExp(moduleName)}::#?${escapeRegExp(ident)}\\b`, 'g');
             let m: RegExpExecArray | null;
             while ((m = re.exec(raw)) !== null) {
+                // 跳过注释中的匹配
+                if (raw.substring(0, m.index).includes(';')) {
+                    continue;
+                }
+
+                // 跳过字符串中的匹配
+                const beforeMatch = raw.substring(0, m.index);
+                const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                if (quoteCount % 2 === 1) {
+                    continue;
+                }
+
                 const identStart = m.index + moduleName.length + 2 + (raw[m.index + moduleName.length + 2] === '#' ? 1 : 0);
                 edits.push({ range: { start: { line: i, character: identStart }, end: { line: i, character: identStart + ident.length } }, newText: newName });
             }
@@ -461,14 +494,16 @@ function handleModuleSymbolRename(
             // 声明：Structure/Interface/Enumeration/常量名
             const constMatch = parsePureBasicConstantDefinition(trimmed) || parsePureBasicConstantDeclaration(trimmed);
             if (constMatch && normalizeConstantName(constMatch.name) === normalizeConstantName(ident)) {
-                const startChar = raw.indexOf('#' + constMatch.name) + 1;
+                const constIndex = raw.indexOf('#' + constMatch.name);
+                if (constIndex === -1) continue;
+                const startChar = constIndex + 1;
                 edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + constMatch.name.length } }, newText: newName });
                 continue;
             }
             const defMatchers = [
-                new RegExp(`^Structure\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Interface\\s+(${ident})\\b`, 'i'),
-                new RegExp(`^Enumeration\\s+(${ident})\\b`, 'i')
+                new RegExp(`^Structure\\s+(${escapeRegExp(ident)})\\b`, 'i'),
+                new RegExp(`^Interface\\s+(${escapeRegExp(ident)})\\b`, 'i'),
+                new RegExp(`^Enumeration\\s+(${escapeRegExp(ident)})\\b`, 'i')
             ];
             for (const r of defMatchers) {
                 const mm = trimmed.match(r);
@@ -544,7 +579,8 @@ function getVariableStructureAt(document: TextDocument, lineNumber: number, varN
 }
 
 function getMemberRange(line: string, character: number, memberName: string, lineNo: number): Range | null {
-    const re = new RegExp(`\\\\(${memberName})\\b`, 'g');
+    const escapedMemberName = escapeRegExp(memberName);
+    const re = new RegExp(`\\\\(${escapedMemberName})\\b`, 'g');
     let m: RegExpExecArray | null;
     while ((m = re.exec(line)) !== null) {
         const start = m.index + 1; // skip '\\'
@@ -569,6 +605,8 @@ function handleStructMemberRename(
     document: TextDocument,
     documentCache: Map<string, TextDocument>
 ): WorkspaceEdit | null {
+    const escapedStructName = escapeRegExp(structName);
+    const escapedMemberName = escapeRegExp(memberName);
     const changes: { [uri: string]: TextEdit[] } = {};
     const searchDocuments = [document, ...Array.from(documentCache.values())];
 
@@ -599,11 +637,23 @@ function handleStructMemberRename(
         for (let i = 0; i < lines.length; i++) {
             const raw = lines[i];
             const line = raw.trim();
-            if (line.match(new RegExp(`^Structure\\s+${structName}\\b`, 'i'))) { inStruct = true; continue; }
+            if (line.match(new RegExp(`^Structure\\s+${escapedStructName}\\b`, 'i'))) { inStruct = true; continue; }
             if (inStruct && line.match(/^EndStructure\b/i)) { inStruct = false; continue; }
             if (inStruct) {
-                const mm = line.match(new RegExp(`^(?:\\*?)(${memberName})(?:\\.|\\s|$)`));
+                const mm = line.match(new RegExp(`^(?:\\*?)(${escapedMemberName})(?:\\.|\\s|$)`));
                 if (mm) {
+                    // 跳过注释中的匹配
+                    if (raw.substring(0, raw.indexOf(mm[1])).includes(';')) {
+                        continue;
+                    }
+
+                    // 跳过字符串中的匹配
+                    const beforeMatch = raw.substring(0, raw.indexOf(mm[1]));
+                    const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                    if (quoteCount % 2 === 1) {
+                        continue;
+                    }
+
                     const startChar = raw.indexOf(mm[1]);
                     edits.push({ range: { start: { line: i, character: startChar }, end: { line: i, character: startChar + memberName.length } }, newText: newName });
                 }
@@ -616,9 +666,21 @@ function handleStructMemberRename(
             for (let i = 0; i < lines.length; i++) {
                 const raw = lines[i];
                 for (const v of vars) {
-                    const re = new RegExp(`\\b\\*?${v}(?:\\([^)]*\\))?\\\\${memberName}\\b`, 'g');
+                    const re = new RegExp(`\\b\\*?${escapeRegExp(v)}(?:\\([^)]*\\))?\\\\${escapedMemberName}\\b`, 'g');
                     let m: RegExpExecArray | null;
                     while ((m = re.exec(raw)) !== null) {
+                        // 跳过注释中的匹配
+                        if (raw.substring(0, m.index).includes(';')) {
+                            continue;
+                        }
+
+                        // 跳过字符串中的匹配
+                        const beforeMatch = raw.substring(0, m.index);
+                        const quoteCount = (beforeMatch.match(/"/g) || []).length;
+                        if (quoteCount % 2 === 1) {
+                            continue;
+                        }
+
                         // 计算成员名起始：在匹配片段内找到第一个反斜杠位置
                         const matchStart = m.index;
                         const matchedText = raw.substring(matchStart, matchStart + m[0].length);
