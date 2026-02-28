@@ -32,9 +32,15 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Update package.json version
+    - name: Update package version if needed
       run: |
-        npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        TARGET_VERSION="${{ github.event.inputs.version }}"
+        if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ]; then
+          echo "Version already $TARGET_VERSION; skipping npm version."
+        else
+          npm version "$TARGET_VERSION" --no-git-tag-version
+        fi
     
     - name: Convert icon to PNG
       run: |
@@ -57,14 +63,24 @@ jobs:
     - name: Publish to VSCode Marketplace
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      run: npx vsce publish --pre-release ${{ github.event.inputs.pre-release }}
-    
-    - name: Create Git Tag
       run: |
+        if [ "${{ github.event.inputs.pre-release }}" = "true" ]; then
+          npx vsce publish --pre-release
+        else
+          npx vsce publish
+        fi
+    
+    - name: Create Git Tag if missing
+      run: |
+        TAG="v${{ github.event.inputs.version }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1 || git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+          echo "Tag $TAG already exists; skipping."
+          exit 0
+        fi
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git tag -a v${{ github.event.inputs.version }} -m "Release v${{ github.event.inputs.version }}"
-        git push origin v${{ github.event.inputs.version }}
+        git tag -a "$TAG" -m "Release $TAG"
+        git push origin "$TAG"
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
